@@ -4,12 +4,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Image,
   StyleSheet,
   ScrollView,
   Alert,
 } from 'react-native';
 import { useAppStore } from '../../stores/useAppStore';
 import { api } from '../../services/api';
+
+const SETTINGS_ICON = require('../../assets/icons/tab-settings.png');
+const CHAT_ICON = require('../../assets/icons/tab-chat.png');
+const AGENTS_ICON = require('../../assets/icons/tab-agents.png');
 
 export default function SettingsScreen() {
   const { backendUrl, setBackendUrl, totalCostUsd, agents } = useAppStore();
@@ -51,15 +56,18 @@ export default function SettingsScreen() {
 
   const statusLabels = {
     idle: '未连接',
-    testing: '测试中...',
-    ok: '已连接',
-    error: '连接失败',
+    testing: '信号检测中...',
+    ok: '突触已连接',
+    error: '信号中断',
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Backend Connection */}
-      <Text style={styles.sectionTitle}>后端连接</Text>
+      <View style={styles.sectionHeader}>
+        <Image source={CHAT_ICON} style={styles.sectionIcon} resizeMode="contain" />
+        <Text style={styles.sectionTitle}>突触连接</Text>
+      </View>
       <View style={styles.card}>
         <Text style={styles.label}>后端地址</Text>
         <TextInput
@@ -84,28 +92,39 @@ export default function SettingsScreen() {
             </Text>
           </View>
           <TouchableOpacity style={styles.testBtn} onPress={testConnection}>
-            <Text style={styles.testBtnText}>测试连接</Text>
+            <Text style={styles.testBtnText}>检测信号</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Cost Dashboard */}
-      <Text style={styles.sectionTitle}>费用统计</Text>
+      <View style={styles.sectionHeader}>
+        <Image source={AGENTS_ICON} style={styles.sectionIcon} resizeMode="contain" />
+        <Text style={styles.sectionTitle}>能量统计</Text>
+      </View>
       <View style={styles.card}>
         <View style={styles.costRow}>
-          <Text style={styles.costLabel}>总费用</Text>
+          <Text style={styles.costLabel}>总消耗</Text>
           <Text style={styles.costValue}>${totalCostUsd.toFixed(6)}</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.costRow}>
-          <Text style={styles.costLabel}>AI 成员数</Text>
+          <Text style={styles.costLabel}>神经元节点</Text>
           <Text style={styles.costValue}>{agents.length}</Text>
         </View>
       </View>
 
       {/* About */}
-      <Text style={styles.sectionTitle}>关于</Text>
+      <View style={styles.sectionHeader}>
+        <Image source={SETTINGS_ICON} style={styles.sectionIcon} resizeMode="contain" />
+        <Text style={styles.sectionTitle}>关于</Text>
+      </View>
       <View style={styles.card}>
+        <Image
+          source={SETTINGS_ICON}
+          style={styles.aboutLogo}
+          resizeMode="contain"
+        />
         <Text style={styles.aboutTitle}>S Y N A P S E</Text>
         <Text style={styles.aboutSubtitle}>突触 · 连接智慧，协同思考</Text>
         <Text style={styles.aboutVersion}>版本 2.0.0</Text>
@@ -127,14 +146,24 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginTop: 20,
+    gap: 6,
+  },
+  sectionIcon: {
+    width: 16,
+    height: 16,
+    opacity: 0.5,
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
     color: '#999',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 8,
-    marginTop: 20,
   },
   card: {
     backgroundColor: '#FAFAFA',
@@ -208,6 +237,13 @@ const styles = StyleSheet.create({
   divider: {
     height: 0.5,
     backgroundColor: '#E5E5E5',
+  },
+  aboutLogo: {
+    width: 48,
+    height: 48,
+    opacity: 0.25,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   aboutTitle: {
     fontSize: 22,

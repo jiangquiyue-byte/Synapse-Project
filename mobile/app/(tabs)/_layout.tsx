@@ -1,16 +1,19 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    chat: '💬',
-    agents: '🤖',
-    settings: '⚙️',
-  };
+const ICONS = {
+  chat: require('../../assets/icons/tab-chat.png'),
+  agents: require('../../assets/icons/tab-agents.png'),
+  settings: require('../../assets/icons/tab-settings.png'),
+};
+
+function TabIcon({ name, focused }: { name: keyof typeof ICONS; focused: boolean }) {
   return (
-    <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.4 }}>
-      {icons[name] || '●'}
-    </Text>
+    <Image
+      source={ICONS[name]}
+      style={[styles.icon, { opacity: focused ? 1 : 0.35 }]}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -22,14 +25,16 @@ export default function TabLayout() {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E5E5E5',
           borderTopWidth: 0.5,
-          height: 60,
+          height: 64,
           paddingBottom: 8,
+          paddingTop: 4,
         },
         tabBarActiveTintColor: '#000000',
         tabBarInactiveTintColor: '#999999',
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600',
+          letterSpacing: 0.5,
         },
         headerStyle: { backgroundColor: '#FFFFFF' },
         headerTintColor: '#000000',
@@ -58,11 +63,16 @@ export default function TabLayout() {
         options={{
           title: '设置',
           tabBarLabel: '设置',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name="settings" focused={focused} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon name="settings" focused={focused} />,
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  icon: {
+    width: 26,
+    height: 26,
+  },
+});

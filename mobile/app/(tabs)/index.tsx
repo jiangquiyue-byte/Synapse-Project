@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
+  Image,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -26,12 +27,22 @@ function getAgentColor(agentName: string): string {
   return AGENT_COLORS[agentName];
 }
 
+const MODE_ICONS: Record<DiscussionMode, any> = {
+  sequential: require('../../assets/icons/mode-sequential.png'),
+  debate: require('../../assets/icons/mode-debate.png'),
+  vote: require('../../assets/icons/mode-vote.png'),
+  single: require('../../assets/icons/mode-single.png'),
+};
+
 const MODE_LABELS: Record<DiscussionMode, string> = {
   sequential: '顺序',
   debate: '辩论',
   vote: '投票',
   single: '指定',
 };
+
+const SEND_ICON = require('../../assets/icons/send-pulse.png');
+const EMPTY_ICON = require('../../assets/icons/empty-agents.png');
 
 export default function ChatScreen() {
   const {
@@ -74,7 +85,6 @@ export default function ChatScreen() {
       return;
     }
 
-    // Add user message
     const userMsg: Message = {
       id: 'user_' + Date.now(),
       role: 'user',
@@ -85,7 +95,6 @@ export default function ChatScreen() {
     setInputText('');
     setLoading(true);
 
-    // Determine target agent for @mention
     let targetAgentId: string | null = null;
     let mode = discussionMode;
     const atMatch = text.match(/^@(\S+)/);
@@ -212,7 +221,7 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={90}
     >
-      {/* Mode selector bar */}
+      {/* Mode selector bar with synapse icons */}
       <View style={styles.modeBar}>
         {(['sequential', 'debate', 'vote', 'single'] as DiscussionMode[]).map(
           (mode) => (
@@ -224,6 +233,14 @@ export default function ChatScreen() {
               ]}
               onPress={() => setDiscussionMode(mode)}
             >
+              <Image
+                source={MODE_ICONS[mode]}
+                style={[
+                  styles.modeIcon,
+                  discussionMode === mode && styles.modeIconActive,
+                ]}
+                resizeMode="contain"
+              />
               <Text
                 style={[
                   styles.modeBtnText,
@@ -249,6 +266,11 @@ export default function ChatScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
+            <Image
+              source={require('../../assets/icons/tab-chat.png')}
+              style={styles.emptyLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.emptyTitle}>S Y N A P S E</Text>
             <Text style={styles.emptySubtitle}>连接智慧，协同思考</Text>
             <Text style={styles.emptyHint}>
@@ -264,11 +286,11 @@ export default function ChatScreen() {
       {isLoading && (
         <View style={styles.loadingBar}>
           <ActivityIndicator size="small" color="#000" />
-          <Text style={styles.loadingText}>AI 正在思考...</Text>
+          <Text style={styles.loadingText}>突触信号传递中...</Text>
         </View>
       )}
 
-      {/* Input bar */}
+      {/* Input bar with synapse send icon */}
       <View style={styles.inputBar}>
         <TextInput
           style={styles.input}
@@ -285,7 +307,11 @@ export default function ChatScreen() {
           onPress={sendMessage}
           disabled={isLoading}
         >
-          <Text style={styles.sendBtnText}>↑</Text>
+          <Image
+            source={SEND_ICON}
+            style={styles.sendIcon}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -299,27 +325,39 @@ const styles = StyleSheet.create({
   },
   modeBar: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: '#E5E5E5',
-    gap: 8,
+    gap: 6,
   },
   modeBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E5E5',
+    gap: 4,
   },
   modeBtnActive: {
     backgroundColor: '#000000',
     borderColor: '#000000',
   },
+  modeIcon: {
+    width: 18,
+    height: 18,
+    tintColor: '#666',
+  },
+  modeIconActive: {
+    tintColor: '#FFFFFF',
+  },
   modeBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#666',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   modeBtnTextActive: {
     color: '#FFFFFF',
@@ -441,16 +479,22 @@ const styles = StyleSheet.create({
   sendBtnDisabled: {
     backgroundColor: '#CCC',
   },
-  sendBtnText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+  sendIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#FFFFFF',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 120,
+    paddingTop: 80,
+  },
+  emptyLogo: {
+    width: 64,
+    height: 64,
+    opacity: 0.3,
+    marginBottom: 20,
   },
   emptyTitle: {
     fontSize: 28,

@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
+  Image,
   StyleSheet,
   ScrollView,
   Alert,
@@ -12,6 +13,9 @@ import {
 } from 'react-native';
 import { useAppStore, Agent } from '../../stores/useAppStore';
 import { api } from '../../services/api';
+
+const EMPTY_ICON = require('../../assets/icons/empty-agents.png');
+const ADD_ICON = require('../../assets/icons/add-neuron.png');
 
 const PROVIDERS = [
   { label: 'OpenAI', value: 'openai' },
@@ -59,7 +63,6 @@ export default function AgentsScreen() {
       supportsVision: false,
     };
 
-    // Save to backend if available
     if (backendUrl) {
       try {
         await api.createAgent({
@@ -100,7 +103,11 @@ export default function AgentsScreen() {
     <View style={styles.agentCard}>
       <View style={styles.agentHeader}>
         <View style={styles.agentAvatar}>
-          <Text style={styles.agentAvatarText}>{item.name.charAt(0)}</Text>
+          <Image
+            source={require('../../assets/icons/tab-agents.png')}
+            style={styles.agentAvatarIcon}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.agentInfo}>
           <Text style={styles.agentName}>{item.name}</Text>
@@ -134,19 +141,28 @@ export default function AgentsScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🤖</Text>
-            <Text style={styles.emptyText}>还没有 AI 成员</Text>
-            <Text style={styles.emptyHint}>点击下方按钮添加第一个 Agent</Text>
+            <Image
+              source={EMPTY_ICON}
+              style={styles.emptyIconImg}
+              resizeMode="contain"
+            />
+            <Text style={styles.emptyText}>还没有神经元节点</Text>
+            <Text style={styles.emptyHint}>添加 AI Agent 激活突触网络</Text>
           </View>
         }
       />
 
-      {/* Add button */}
+      {/* Add button with synapse icon */}
       <TouchableOpacity
         style={styles.addBtn}
         onPress={() => setShowForm(true)}
       >
-        <Text style={styles.addBtnText}>+ 添加 AI 成员</Text>
+        <Image
+          source={ADD_ICON}
+          style={styles.addBtnIcon}
+          resizeMode="contain"
+        />
+        <Text style={styles.addBtnText}>添加神经元</Text>
       </TouchableOpacity>
 
       {/* Add Agent Modal */}
@@ -156,9 +172,9 @@ export default function AgentsScreen() {
             <TouchableOpacity onPress={resetForm}>
               <Text style={styles.modalCancel}>取消</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>添加 AI 成员</Text>
+            <Text style={styles.modalTitle}>添加神经元</Text>
             <TouchableOpacity onPress={handleAddAgent}>
-              <Text style={styles.modalSave}>保存</Text>
+              <Text style={styles.modalSave}>激活</Text>
             </TouchableOpacity>
           </View>
 
@@ -270,15 +286,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  agentAvatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
+  agentAvatarIcon: {
+    width: 24,
+    height: 24,
+    opacity: 0.7,
   },
   agentInfo: {
     flex: 1,
@@ -329,9 +345,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 80,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+  emptyIconImg: {
+    width: 72,
+    height: 72,
+    opacity: 0.35,
+    marginBottom: 20,
   },
   emptyText: {
     fontSize: 16,
@@ -351,8 +369,15 @@ const styles = StyleSheet.create({
     height: 48,
     backgroundColor: '#000000',
     borderRadius: 24,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
+  },
+  addBtnIcon: {
+    width: 22,
+    height: 22,
+    tintColor: '#FFFFFF',
   },
   addBtnText: {
     color: '#FFFFFF',
