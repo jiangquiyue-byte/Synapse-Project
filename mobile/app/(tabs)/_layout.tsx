@@ -25,9 +25,9 @@ export default function TabLayout() {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E5E5E5',
           borderTopWidth: 0.5,
-          height: 64,
+          height: 70,
           paddingBottom: 8,
-          paddingTop: 4,
+          paddingTop: 6,
         },
         tabBarActiveTintColor: '#000000',
         tabBarInactiveTintColor: '#999999',
@@ -72,7 +72,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   icon: {
-    width: 26,
-    height: 26,
+    width: 34,
+    height: 34,
   },
 });

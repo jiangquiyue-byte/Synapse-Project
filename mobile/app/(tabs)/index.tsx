@@ -336,19 +336,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    gap: 4,
+    gap: 6,
   },
   modeBtnActive: {
     backgroundColor: '#000000',
     borderColor: '#000000',
   },
   modeIcon: {
-    width: 18,
-    height: 18,
+    width: 24,
+    height: 24,
     tintColor: '#666',
   },
   modeIconActive: {
@@ -468,9 +468,9 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
@@ -480,8 +480,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#CCC',
   },
   sendIcon: {
-    width: 20,
-    height: 20,
+    width: 26,
+    height: 26,
     tintColor: '#FFFFFF',
   },
   emptyContainer: {
@@ -491,10 +491,10 @@ const styles = StyleSheet.create({
     paddingTop: 80,
   },
   emptyLogo: {
-    width: 64,
-    height: 64,
+    width: 96,
+    height: 96,
     opacity: 0.3,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   emptyTitle: {
     fontSize: 28,

@@ -151,11 +151,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
     marginTop: 20,
-    gap: 6,
+    gap: 8,
   },
   sectionIcon: {
-    width: 16,
-    height: 16,
+    width: 22,
+    height: 22,
     opacity: 0.5,
   },
   sectionTitle: {
@@ -239,11 +239,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E5E5',
   },
   aboutLogo: {
-    width: 48,
-    height: 48,
+    width: 72,
+    height: 72,
     opacity: 0.25,
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   aboutTitle: {
     fontSize: 22,
