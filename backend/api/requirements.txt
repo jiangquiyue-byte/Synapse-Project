@@ -1,0 +1,15 @@
+fastapi>=0.115.0
+uvicorn[standard]
+sse-starlette
+pydantic-settings
+python-multipart
+python-dotenv
+cryptography
+httpx
+markdown
+langchain
+langchain-openai
+langchain-google-genai
+langchain-anthropic
+langgraph
+tiktoken
