@@ -1,3 +1,7 @@
+/**
+ * SSEClient - Custom SSE-over-fetch client for Expo/React Native.
+ * Properly handles event boundaries (blank lines) per SSE spec.
+ */
 export class SSEClient {
   private controller: AbortController | null = null;
 
@@ -37,16 +41,35 @@ export class SSEClient {
         buffer = lines.pop() || '';
 
         let currentEvent = 'message';
+        let currentData = '';
+
         for (const line of lines) {
           if (line.startsWith('event:')) {
             currentEvent = line.slice(6).trim();
           } else if (line.startsWith('data:')) {
-            const data = line.slice(5).trim();
-            try {
-              onMessage(currentEvent, JSON.parse(data));
-            } catch {
-              onMessage(currentEvent, data);
+            currentData = line.slice(5).trim();
+          } else if (line.trim() === '') {
+            // Blank line = end of SSE event block, dispatch if we have data
+            if (currentData) {
+              try {
+                onMessage(currentEvent, JSON.parse(currentData));
+              } catch {
+                onMessage(currentEvent, currentData);
+              }
             }
+            // Reset for next event block
+            currentEvent = 'message';
+            currentData = '';
+          }
+        }
+
+        // If we have pending data without a trailing blank line, dispatch it
+        // (sse-starlette may not always send trailing blank lines)
+        if (currentData) {
+          try {
+            onMessage(currentEvent, JSON.parse(currentData));
+          } catch {
+            onMessage(currentEvent, currentData);
           }
         }
       }

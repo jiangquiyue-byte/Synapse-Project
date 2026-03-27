@@ -42,7 +42,6 @@ const MODE_LABELS: Record<DiscussionMode, string> = {
 };
 
 const SEND_ICON = require('../../assets/icons/send-pulse.png');
-const EMPTY_ICON = require('../../assets/icons/empty-agents.png');
 
 export default function ChatScreen() {
   const {
@@ -63,10 +62,17 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
   const sseClient = useRef(new SSEClient());
 
+  // Check if backend is reachable (either explicit URL or default fallback)
+  const hasBackend = () => {
+    return !!(backendUrl || api.getChatStreamUrl());
+  };
+
   const sendMessage = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isLoading) return;
-    if (!backendUrl) {
+
+    // Use api.getChatStreamUrl() which already has DEFAULT_BACKEND_URL fallback
+    if (!hasBackend()) {
       addMessage({
         id: 'sys_' + Date.now(),
         role: 'system',
@@ -95,9 +101,10 @@ export default function ChatScreen() {
     setInputText('');
     setLoading(true);
 
+    // Parse @mention - supports @name anywhere in the message
     let targetAgentId: string | null = null;
     let mode = discussionMode;
-    const atMatch = text.match(/^@(\S+)/);
+    const atMatch = text.match(/@(\S+)/);
     if (atMatch) {
       const targetAgent = agents.find((a) => a.name === atMatch[1]);
       if (targetAgent) {
@@ -119,6 +126,7 @@ export default function ChatScreen() {
         },
         (event, data) => {
           if (event === 'agent_message' && data) {
+            const isSynthesizer = data.role === 'synthesizer';
             addMessage({
               id: data.id || 'msg_' + Date.now() + Math.random(),
               role: data.role || 'agent',
@@ -165,11 +173,31 @@ export default function ChatScreen() {
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === 'user';
     const isSystem = item.role === 'system';
+    const isSynthesizer = item.role === 'synthesizer';
 
     if (isSystem) {
       return (
         <View style={styles.systemMsgContainer}>
           <Text style={styles.systemMsgText}>{item.content}</Text>
+        </View>
+      );
+    }
+
+    // Synthesizer gets a special full-width card style
+    if (isSynthesizer) {
+      return (
+        <View style={styles.synthesizerContainer}>
+          <View style={styles.synthesizerHeader}>
+            <View style={styles.synthesizerIcon}>
+              <Text style={styles.synthesizerIconText}>S</Text>
+            </View>
+            <Text style={styles.synthesizerTitle}>
+              {item.agentName || 'Synapse 综合结论'}
+            </Text>
+          </View>
+          <View style={styles.synthesizerBubble}>
+            <Text style={styles.synthesizerText}>{item.content}</Text>
+          </View>
         </View>
       );
     }
@@ -215,6 +243,20 @@ export default function ChatScreen() {
     );
   };
 
+  // Mode description for current mode
+  const getModeHint = (): string => {
+    switch (discussionMode) {
+      case 'debate':
+        return `辩论模式 · ${maxDebateRounds} 轮交锋`;
+      case 'vote':
+        return '投票模式 · 独立回答后综合';
+      case 'single':
+        return '指定模式 · @名称 指定发言';
+      default:
+        return '顺序模式 · 依次发言';
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -252,6 +294,11 @@ export default function ChatScreen() {
             </TouchableOpacity>
           )
         )}
+      </View>
+
+      {/* Mode hint bar */}
+      <View style={styles.modeHintBar}>
+        <Text style={styles.modeHintText}>{getModeHint()}</Text>
       </View>
 
       {/* Messages */}
@@ -296,7 +343,11 @@ export default function ChatScreen() {
           style={styles.input}
           value={inputText}
           onChangeText={setInputText}
-          placeholder="输入消息... (@名称 可指定发言)"
+          placeholder={
+            discussionMode === 'single'
+              ? '输入 @名称 消息内容...'
+              : '输入消息... (@名称 可指定发言)'
+          }
           placeholderTextColor="#999"
           multiline
           maxLength={2000}
@@ -361,6 +412,19 @@ const styles = StyleSheet.create({
   },
   modeBtnTextActive: {
     color: '#FFFFFF',
+  },
+  modeHintBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: '#FAFAFA',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E5E5',
+  },
+  modeHintText: {
+    fontSize: 11,
+    color: '#999',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   messageList: {
     paddingHorizontal: 16,
@@ -435,6 +499,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 10,
+  },
+  // Synthesizer special styles
+  synthesizerContainer: {
+    marginVertical: 12,
+    marginHorizontal: 4,
+  },
+  synthesizerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  synthesizerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  synthesizerIconText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  synthesizerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: 0.5,
+  },
+  synthesizerBubble: {
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderLeftWidth: 3,
+    borderLeftColor: '#000',
+  },
+  synthesizerText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#000',
   },
   loadingBar: {
     flexDirection: 'row',

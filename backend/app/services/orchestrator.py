@@ -33,20 +33,25 @@ def make_agent_node(cfg: dict):
     """
 
     async def agent_node(state):
-        # --- Line 45: Real LLM API invocation starts here ---
         llm = create_llm(cfg)
 
-        prev_msgs = "\n".join(
-            f"[{m['agent_name']}]: {m['content']}"
-            for m in state["messages"] if m["role"] != "user"
-        )
+        # In vote mode, agents should NOT see other agents' responses
+        if state["mode"] == "vote":
+            prev_msgs = ""
+        else:
+            prev_msgs = "\n".join(
+                f"[{m['agent_name']}]: {m['content']}"
+                for m in state["messages"] if m["role"] != "user"
+            )
 
         mode_instruction = ""
         if state["mode"] == "debate":
+            current_round = state.get("debate_round", 0)
+            max_rounds = state.get("max_debate_rounds", 3)
             mode_instruction = (
                 "\n这是一场自由辩论。你可以质疑、补充或反驳之前任何 Agent 的观点。"
                 "请明确指出你同意或不同意谁的观点，并给出理由。"
-                f"\n当前是第 {state['debate_round']+1}/{state['max_debate_rounds']} 轮辩论。"
+                f"\n当前是第 {current_round + 1}/{max_rounds} 轮辩论。"
             )
         elif state["mode"] == "vote":
             mode_instruction = (
@@ -108,7 +113,22 @@ def make_agent_node(cfg: dict):
     return agent_node
 
 
+def make_round_counter_node(num_agents: int):
+    """Creates a node that increments the debate_round counter
+    after all agents have spoken in the current round."""
+
+    async def round_counter(state):
+        return {
+            "messages": [],
+            "debate_round": state["debate_round"] + 1,
+            "current_agent_index": 0,
+        }
+
+    return round_counter
+
+
 def debate_should_continue(state):
+    """Decide whether to continue the debate or synthesize."""
     if state["debate_round"] >= state["max_debate_rounds"]:
         return "synthesize"
     return "next_round"
@@ -141,15 +161,36 @@ async def synthesizer_node(state):
         synth_kwargs["base_url"] = base_url
     synth_llm = ChatOpenAI(**synth_kwargs)
 
-    try:
-        response = await synth_llm.ainvoke([{
-            "role": "system",
-            "content": f"""你是 Synapse 的智慧综合器。以下是多位 AI 专家的{mode_label}结果。
-请综合所有观点，指出共识与分歧，给出最终结论。回复请控制在500字以内。
+    synthesis_prompt = ""
+    if state["mode"] == "debate":
+        synthesis_prompt = f"""你是 Synapse 的智慧综合器。以下是多位 AI 专家经过 {state['debate_round']} 轮辩论后的完整记录。
+请综合所有观点，指出：
+1. 各方的核心论点
+2. 主要共识
+3. 关键分歧
+4. 你的最终综合结论
 
 {all_responses}
 
-用户原始问题：{state['user_query']}"""
+用户原始问题：{state['user_query']}
+回复请控制在500字以内。"""
+    elif state["mode"] == "vote":
+        synthesis_prompt = f"""你是 Synapse 的智慧综合器。以下是多位 AI 专家对同一问题的独立投票回答。
+请统计并分析：
+1. 各专家的核心立场
+2. 多数共识（如果有）
+3. 少数异见（如果有）
+4. 综合最终结论
+
+{all_responses}
+
+用户原始问题：{state['user_query']}
+回复请控制在500字以内。"""
+
+    try:
+        response = await synth_llm.ainvoke([{
+            "role": "system",
+            "content": synthesis_prompt
         }])
         content = response.content if hasattr(response, 'content') else str(response)
     except Exception as e:
@@ -194,15 +235,25 @@ async def build_graph(agent_configs: list, mode: str, max_rounds: int = 3):
 
     elif mode == "debate":
         # Debate: [A1,A2,A3] x N rounds -> Synthesizer
+        # Fixed: Added round_counter node to properly increment debate_round
         for cfg in sorted_agents:
             graph.add_node(f"agent_{cfg['id']}", make_agent_node(cfg))
+        graph.add_node("round_counter", make_round_counter_node(len(sorted_agents)))
         graph.add_node("synthesizer", synthesizer_node)
+
         names = [f"agent_{a['id']}" for a in sorted_agents]
         graph.set_entry_point(names[0])
+
+        # Chain agents sequentially within a round
         for i in range(len(names) - 1):
             graph.add_edge(names[i], names[i + 1])
+
+        # Last agent -> round_counter (increments debate_round)
+        graph.add_edge(names[-1], "round_counter")
+
+        # round_counter decides: continue debate or synthesize
         graph.add_conditional_edges(
-            names[-1],
+            "round_counter",
             debate_should_continue,
             {"next_round": names[0], "synthesize": "synthesizer"}
         )
@@ -210,6 +261,7 @@ async def build_graph(agent_configs: list, mode: str, max_rounds: int = 3):
 
     elif mode == "vote":
         # Vote: A1 -> A2 -> A3 -> Synthesizer -> END
+        # Each agent answers independently (prev_msgs hidden in vote mode)
         for cfg in sorted_agents:
             graph.add_node(f"agent_{cfg['id']}", make_agent_node(cfg))
         graph.add_node("synthesizer", synthesizer_node)
