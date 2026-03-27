@@ -1,7 +1,9 @@
 import { useAppStore } from '../stores/useAppStore';
 
+const DEFAULT_BACKEND_URL = 'https://8000-itjpuatlcc84icpovyuc5-2b4d9b54.sg1.manus.computer';
+
 const getBaseUrl = () => {
-  return useAppStore.getState().backendUrl || 'http://localhost:8000';
+  return useAppStore.getState().backendUrl || DEFAULT_BACKEND_URL;
 };
 
 export const api = {

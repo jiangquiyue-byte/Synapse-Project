@@ -9,8 +9,6 @@ def get_fernet():
     if _fernet is None:
         settings = get_settings()
         key = settings.ENCRYPTION_KEY
-        if key == "placeholder-key":
-            key = Fernet.generate_key().decode()
         _fernet = Fernet(key.encode() if isinstance(key, str) else key)
     return _fernet
 
