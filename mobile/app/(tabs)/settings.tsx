@@ -74,7 +74,7 @@ export default function SettingsScreen() {
           style={styles.textInput}
           value={urlInput}
           onChangeText={setUrlInput}
-          placeholder="https://your-backend.railway.app"
+          placeholder="https://synapse-project-seven.vercel.app"
           placeholderTextColor="#BBB"
           autoCapitalize="none"
           autoCorrect={false}
