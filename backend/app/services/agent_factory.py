@@ -36,12 +36,16 @@ def create_llm(agent_config: dict):
 
     if provider == "openai":
         from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
+        base_url = os.environ.get("OPENAI_BASE_URL", None)
+        kwargs = dict(
             model=model,
             api_key=api_key,
             temperature=temp,
             streaming=False,
         )
+        if base_url:
+            kwargs["base_url"] = base_url
+        return ChatOpenAI(**kwargs)
     elif provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(

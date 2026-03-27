@@ -131,11 +131,15 @@ async def synthesizer_node(state):
         api_key = get_settings().OPENAI_API_KEY
 
     from langchain_openai import ChatOpenAI
-    synth_llm = ChatOpenAI(
+    base_url = os.environ.get("OPENAI_BASE_URL", None)
+    synth_kwargs = dict(
         model="gpt-4.1-mini",
         api_key=api_key,
         temperature=0.3,
     )
+    if base_url:
+        synth_kwargs["base_url"] = base_url
+    synth_llm = ChatOpenAI(**synth_kwargs)
 
     try:
         response = await synth_llm.ainvoke([{

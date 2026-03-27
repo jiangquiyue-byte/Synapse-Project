@@ -22,3 +22,5 @@ Thumbs.db
 # Build
 *.apk
 *.ipa
+.vercel
+.env*.local
