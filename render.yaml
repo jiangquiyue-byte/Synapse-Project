@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: synapse-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ENCRYPTION_KEY
+        value: ghszRjI0495ouFAPRF-V_GahG3nSc8tlmeM_KKCzDCE=
+      - key: PORT
+        value: "8000"
