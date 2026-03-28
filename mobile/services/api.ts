@@ -85,6 +85,7 @@ export const api = {
     return safeJson(res);
   },
 
-  // Chat stream URL
+  // Chat URLs
   getChatStreamUrl: () => `${getBaseUrl()}/api/chat/stream`,
+  getChatSendUrl: () => `${getBaseUrl()}/api/chat/send`,
 };
