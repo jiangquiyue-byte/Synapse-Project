@@ -11,7 +11,7 @@ function TabIcon({ name, focused }: { name: keyof typeof ICONS; focused: boolean
   return (
     <Image
       source={ICONS[name]}
-      style={[styles.icon, { opacity: focused ? 1 : 0.3, tintColor: '#FFFFFF' }]}
+      style={[styles.icon, { opacity: focused ? 1 : 0.35 }]}
       resizeMode="contain"
     />
   );
@@ -22,22 +22,22 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: '#000000',
-          borderTopColor: '#262626',
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E5E5E5',
           borderTopWidth: 0.5,
           height: 70,
           paddingBottom: 8,
           paddingTop: 6,
         },
-        tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: '#666666',
+        tabBarActiveTintColor: '#000000',
+        tabBarInactiveTintColor: '#999999',
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
           letterSpacing: 0.5,
         },
-        headerStyle: { backgroundColor: '#000000' },
-        headerTintColor: '#FFFFFF',
+        headerStyle: { backgroundColor: '#FFFFFF' },
+        headerTintColor: '#000000',
         headerTitleStyle: { fontWeight: '700', fontSize: 18 },
         headerShadowVisible: false,
       }}
@@ -53,7 +53,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="agents"
         options={{
-          title: 'AI 成员',
+          title: '成员管理',
           tabBarLabel: '成员',
           tabBarIcon: ({ focused }) => <TabIcon name="agents" focused={focused} />,
         }}

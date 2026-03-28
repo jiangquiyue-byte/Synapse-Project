@@ -17,6 +17,10 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 async def stream_chat(request: ChatRequest):
     """Stream multi-agent chat responses via SSE.
     
+    Supports two modes for agent resolution:
+    1. inline_agents: Agent configs sent directly in request (stateless, recommended)
+    2. agent_ids: Look up agents from in-memory store (stateful, legacy)
+    
     SSE Event Protocol:
     - event: agent_start   -> Agent begins thinking
     - event: agent_message -> Agent's complete response
@@ -25,18 +29,36 @@ async def stream_chat(request: ChatRequest):
     - event: error         -> Error occurred
     """
 
-    # Load agent configs from in-memory store
     agent_configs = []
-    for aid in request.agent_ids:
-        agent = get_agent(aid)
-        if agent:
-            agent_configs.append(agent)
+
+    # Priority 1: Use inline agent configs (stateless, works on Serverless)
+    if request.inline_agents:
+        for ia in request.inline_agents:
+            agent_configs.append({
+                "id": ia.id,
+                "name": ia.name,
+                "persona": ia.persona,
+                "provider": ia.provider,
+                "model": ia.model,
+                "api_key_encrypted": ia.api_key,  # plaintext key from frontend
+                "sequence_order": ia.sequence_order,
+                "tools": ia.tools,
+                "temperature": ia.temperature,
+                "supports_vision": ia.supports_vision,
+                "custom_base_url": ia.custom_base_url,
+            })
+    else:
+        # Priority 2: Fallback to in-memory store lookup
+        for aid in request.agent_ids:
+            agent = get_agent(aid)
+            if agent:
+                agent_configs.append(agent)
 
     if not agent_configs:
         async def error_gen():
             yield {
                 "event": "error",
-                "data": json.dumps({"error": "没有找到有效的 Agent 配置"}, ensure_ascii=False)
+                "data": json.dumps({"error": "没有找到有效的 Agent 配置。请确认已添加成员。"}, ensure_ascii=False)
             }
             yield {"event": "done", "data": "{}"}
         return EventSourceResponse(error_gen())

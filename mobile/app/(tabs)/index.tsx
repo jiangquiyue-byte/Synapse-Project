@@ -24,17 +24,10 @@ import { api } from '../../services/api';
 const SEND_ICON = require('../../assets/icons/send-pulse.png');
 
 const MODE_LABELS: Record<DiscussionMode, string> = {
-  sequential: 'SEQ',
-  debate: 'DBT',
-  vote: 'VOT',
-  single: '@1',
-};
-
-const MODE_FULL: Record<DiscussionMode, string> = {
-  sequential: '顺序发言',
-  debate: '自由辩论',
-  vote: '投票表决',
-  single: '指定发言',
+  sequential: '顺序',
+  debate: '辩论',
+  vote: '投票',
+  single: '指定',
 };
 
 export default function ChatScreen() {
@@ -68,7 +61,7 @@ export default function ChatScreen() {
       if (result.canceled || !result.assets?.length) return;
       const file = result.assets[0];
       setUploadingDoc(true);
-      addMessage({ id: 'sys_' + Date.now(), role: 'system', content: `上传中: ${file.name}`, timestamp: new Date().toISOString() });
+      addMessage({ id: 'sys_' + Date.now(), role: 'system', content: `正在上传: ${file.name}`, timestamp: new Date().toISOString() });
       try {
         const r = await api.uploadDocument(
           { uri: file.uri, name: file.name, type: file.mimeType || 'application/octet-stream' },
@@ -128,7 +121,28 @@ export default function ChatScreen() {
     try {
       await sseClient.current.connect(
         api.getChatStreamUrl(),
-        { session_id: currentSessionId, user_message: text, agent_ids: agents.map((a) => a.id), mode, target_agent_id: targetAgentId, max_debate_rounds: maxDebateRounds, image_base64: imageBase64 },
+        {
+          session_id: currentSessionId,
+          user_message: text,
+          agent_ids: agents.map((a) => a.id),
+          mode,
+          target_agent_id: targetAgentId,
+          max_debate_rounds: maxDebateRounds,
+          image_base64: imageBase64,
+          inline_agents: agents.map((a) => ({
+            id: a.id,
+            name: a.name,
+            persona: a.persona,
+            provider: a.provider,
+            model: a.model,
+            api_key: a.apiKey,
+            sequence_order: a.sequenceOrder,
+            tools: a.tools,
+            temperature: a.temperature,
+            supports_vision: a.supportsVision,
+            custom_base_url: a.customBaseUrl || '',
+          })),
+        },
         (event, data) => {
           if (event === 'agent_message' && data) {
             addMessage({ id: data.id || 'msg_' + Date.now() + Math.random(), role: data.role || 'agent', agentName: data.agent_name, content: data.content, timestamp: data.timestamp || new Date().toISOString(), tokenCount: data.token_count, costUsd: data.cost_usd });
@@ -162,7 +176,7 @@ export default function ChatScreen() {
         <View style={styles.synthContainer}>
           <View style={styles.synthHeader}>
             <View style={styles.synthDot} />
-            <Text style={styles.synthLabel}>{item.agentName || 'SYNAPSE SYNTHESIS'}</Text>
+            <Text style={styles.synthLabel}>{item.agentName || '综合结论'}</Text>
           </View>
           <View style={styles.synthBody}>
             <Text style={styles.synthText}>{item.content}</Text>
@@ -180,7 +194,7 @@ export default function ChatScreen() {
         <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAgent]}>
           {!isUser && <Text style={styles.agentLabel}>{item.agentName}</Text>}
           <Text style={[styles.msgText, isUser && styles.msgTextUser]}>{item.content}</Text>
-          {item.tokenCount ? <Text style={styles.tokenText}>{item.tokenCount} tok · ${item.costUsd?.toFixed(6)}</Text> : null}
+          {item.tokenCount ? <Text style={styles.tokenText}>{item.tokenCount} tokens · ${item.costUsd?.toFixed(6)}</Text> : null}
         </View>
       </View>
     );
@@ -205,7 +219,7 @@ export default function ChatScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Image source={require('../../assets/icons/tab-chat.png')} style={styles.emptyLogo} resizeMode="contain" />
-            <Text style={styles.emptyTitle}>S Y N A P S E</Text>
+            <Text style={styles.emptyTitle}>Synapse</Text>
             <Text style={styles.emptySubtitle}>连接智慧，协同思考</Text>
             <Text style={styles.emptyHint}>{agents.length === 0 ? '前往「成员」添加 AI Agent' : '输入问题，开始多智能体群聊'}</Text>
           </View>
@@ -215,8 +229,8 @@ export default function ChatScreen() {
       {/* Loading */}
       {isLoading && (
         <View style={styles.loadingBar}>
-          <ActivityIndicator size="small" color="#FFFFFF" />
-          <Text style={styles.loadingText}>突触信号传递中...</Text>
+          <ActivityIndicator size="small" color="#000000" />
+          <Text style={styles.loadingText}>思考中...</Text>
         </View>
       )}
 
@@ -224,7 +238,7 @@ export default function ChatScreen() {
       {selectedImage && (
         <View style={styles.imgPreview}>
           <Image source={{ uri: selectedImage.uri }} style={styles.imgThumb} />
-          <Text style={styles.imgLabel}>图片已选择</Text>
+          <Text style={styles.imgLabel}>已选择图片</Text>
           <TouchableOpacity onPress={() => setSelectedImage(null)}>
             <Text style={styles.imgRemove}>×</Text>
           </TouchableOpacity>
@@ -249,7 +263,7 @@ export default function ChatScreen() {
           value={inputText}
           onChangeText={setInputText}
           placeholder="输入消息..."
-          placeholderTextColor="#555"
+          placeholderTextColor="#999"
           multiline
           maxLength={2000}
           editable={!isLoading}
@@ -266,12 +280,12 @@ export default function ChatScreen() {
         <Pressable style={styles.menuOverlay} onPress={() => setShowPlusMenu(false)}>
           <View style={styles.menuContainer}>
             <TouchableOpacity style={styles.menuItem} onPress={handleImagePick}>
-              <Text style={styles.menuIcon}>IMG</Text>
+              <Text style={styles.menuIcon}>图片</Text>
               <Text style={styles.menuLabel}>上传图片</Text>
             </TouchableOpacity>
             <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={handleDocumentUpload}>
-              <Text style={styles.menuIcon}>DOC</Text>
+              <Text style={styles.menuIcon}>文档</Text>
               <Text style={styles.menuLabel}>上传文档</Text>
             </TouchableOpacity>
           </View>
@@ -282,68 +296,68 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   messageList: { paddingHorizontal: 16, paddingVertical: 12, flexGrow: 1 },
 
   // Messages
   msgRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'flex-end' },
   msgRowLeft: { justifyContent: 'flex-start' },
   msgRowRight: { justifyContent: 'flex-end' },
-  avatar: { width: 28, height: 28, borderRadius: 2, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center', marginRight: 8, borderWidth: 0.5, borderColor: '#333' },
-  avatarText: { fontSize: 12, fontWeight: '700', color: '#888' },
-  bubble: { maxWidth: '78%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 2 },
-  bubbleUser: { backgroundColor: '#1A1A1A', borderWidth: 0.5, borderColor: '#333' },
-  bubbleAgent: { backgroundColor: '#0D0D0D', borderWidth: 0.5, borderColor: '#262626' },
-  agentLabel: { fontSize: 10, fontWeight: '700', color: '#555', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 },
-  msgText: { fontSize: 14, lineHeight: 20, color: '#E0E0E0' },
+  avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginRight: 8, borderWidth: 0.5, borderColor: '#E0E0E0' },
+  avatarText: { fontSize: 12, fontWeight: '700', color: '#666' },
+  bubble: { maxWidth: '78%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16 },
+  bubbleUser: { backgroundColor: '#000000', borderBottomRightRadius: 4 },
+  bubbleAgent: { backgroundColor: '#F2F2F2', borderBottomLeftRadius: 4 },
+  agentLabel: { fontSize: 10, fontWeight: '700', color: '#888', marginBottom: 4 },
+  msgText: { fontSize: 14, lineHeight: 20, color: '#333333' },
   msgTextUser: { color: '#FFFFFF' },
-  tokenText: { fontSize: 9, color: '#444', marginTop: 4, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  tokenText: { fontSize: 9, color: '#AAA', marginTop: 4, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
 
   // System
   systemRow: { alignItems: 'center', marginVertical: 6 },
-  systemText: { fontSize: 11, color: '#555', backgroundColor: '#0A0A0A', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 2, borderWidth: 0.5, borderColor: '#1A1A1A' },
+  systemText: { fontSize: 11, color: '#999', backgroundColor: '#F5F5F5', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
 
   // Synthesizer
   synthContainer: { marginVertical: 12, marginHorizontal: 4 },
   synthHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 },
-  synthDot: { width: 8, height: 8, borderRadius: 1, backgroundColor: '#FFFFFF' },
-  synthLabel: { fontSize: 10, fontWeight: '700', color: '#888', letterSpacing: 2, textTransform: 'uppercase' },
-  synthBody: { backgroundColor: '#0A0A0A', borderRadius: 2, padding: 16, borderWidth: 0.5, borderColor: '#262626', borderLeftWidth: 2, borderLeftColor: '#FFFFFF' },
-  synthText: { fontSize: 13, lineHeight: 20, color: '#CCCCCC' },
+  synthDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#000000' },
+  synthLabel: { fontSize: 11, fontWeight: '700', color: '#666' },
+  synthBody: { backgroundColor: '#F8F8F8', borderRadius: 12, padding: 16, borderWidth: 0.5, borderColor: '#E5E5E5', borderLeftWidth: 3, borderLeftColor: '#000000' },
+  synthText: { fontSize: 13, lineHeight: 20, color: '#333' },
 
   // Loading
   loadingBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 8 },
-  loadingText: { fontSize: 12, color: '#555', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  loadingText: { fontSize: 12, color: '#999' },
 
   // Image preview
-  imgPreview: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#0A0A0A', borderTopWidth: 0.5, borderTopColor: '#262626', gap: 8 },
-  imgThumb: { width: 32, height: 32, borderRadius: 2, borderWidth: 0.5, borderColor: '#333' },
-  imgLabel: { flex: 1, fontSize: 11, color: '#555' },
-  imgRemove: { fontSize: 18, color: '#555', paddingHorizontal: 8 },
+  imgPreview: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#F8F8F8', borderTopWidth: 0.5, borderTopColor: '#E5E5E5', gap: 8 },
+  imgThumb: { width: 32, height: 32, borderRadius: 6, borderWidth: 0.5, borderColor: '#DDD' },
+  imgLabel: { flex: 1, fontSize: 11, color: '#666' },
+  imgRemove: { fontSize: 18, color: '#999', paddingHorizontal: 8 },
 
   // Input bar
-  inputBar: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#000000', borderTopWidth: 0.5, borderTopColor: '#262626' },
-  plusBtn: { width: 32, height: 32, borderRadius: 2, borderWidth: 0.5, borderColor: '#333', justifyContent: 'center', alignItems: 'center', marginRight: 6 },
-  plusText: { fontSize: 18, color: '#888', fontWeight: '300' },
-  modePill: { height: 32, paddingHorizontal: 8, borderRadius: 2, borderWidth: 0.5, borderColor: '#333', justifyContent: 'center', alignItems: 'center', marginRight: 6, backgroundColor: '#0D0D0D' },
-  modePillText: { fontSize: 10, fontWeight: '700', color: '#888', letterSpacing: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  input: { flex: 1, minHeight: 32, maxHeight: 100, backgroundColor: '#0D0D0D', borderRadius: 2, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, color: '#FFFFFF', borderWidth: 0.5, borderColor: '#262626', marginRight: 6 },
-  sendBtn: { width: 32, height: 32, borderRadius: 2, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
-  sendBtnDisabled: { backgroundColor: '#333' },
-  sendIcon: { width: 18, height: 18, tintColor: '#000000' },
+  inputBar: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#FFFFFF', borderTopWidth: 0.5, borderTopColor: '#E5E5E5' },
+  plusBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#DDD', justifyContent: 'center', alignItems: 'center', marginRight: 6 },
+  plusText: { fontSize: 18, color: '#666', fontWeight: '300' },
+  modePill: { height: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#DDD', justifyContent: 'center', alignItems: 'center', marginRight: 6, backgroundColor: '#F5F5F5' },
+  modePillText: { fontSize: 11, fontWeight: '600', color: '#333' },
+  input: { flex: 1, minHeight: 32, maxHeight: 100, backgroundColor: '#F5F5F5', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, color: '#000000', marginRight: 6 },
+  sendBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  sendBtnDisabled: { backgroundColor: '#CCC' },
+  sendIcon: { width: 16, height: 16 },
 
   // Plus menu
-  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end', paddingBottom: 80, paddingHorizontal: 16 },
-  menuContainer: { backgroundColor: '#111111', borderRadius: 2, borderWidth: 0.5, borderColor: '#262626', overflow: 'hidden' },
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end', paddingBottom: 80, paddingHorizontal: 16 },
+  menuContainer: { backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  menuIcon: { fontSize: 10, fontWeight: '700', color: '#888', letterSpacing: 1, width: 36, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  menuLabel: { fontSize: 14, color: '#CCCCCC' },
-  menuDivider: { height: 0.5, backgroundColor: '#262626' },
+  menuIcon: { fontSize: 13, fontWeight: '600', color: '#333', width: 40 },
+  menuLabel: { fontSize: 15, color: '#333' },
+  menuDivider: { height: 0.5, backgroundColor: '#E5E5E5', marginHorizontal: 16 },
 
   // Empty state
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
-  emptyLogo: { width: 80, height: 80, opacity: 0.15, marginBottom: 24, tintColor: '#FFFFFF' },
-  emptyTitle: { fontSize: 28, fontWeight: '200', letterSpacing: 8, color: '#FFFFFF', marginBottom: 8 },
-  emptySubtitle: { fontSize: 13, color: '#555', marginBottom: 24 },
-  emptyHint: { fontSize: 12, color: '#333' },
+  emptyLogo: { width: 80, height: 80, opacity: 0.2, marginBottom: 24 },
+  emptyTitle: { fontSize: 28, fontWeight: '300', letterSpacing: 4, color: '#000000', marginBottom: 8 },
+  emptySubtitle: { fontSize: 13, color: '#999', marginBottom: 24 },
+  emptyHint: { fontSize: 12, color: '#BBB' },
 });

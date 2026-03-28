@@ -7,13 +7,12 @@ import { useAppStore, Agent } from '../../stores/useAppStore';
 import { api } from '../../services/api';
 
 const EMPTY_ICON = require('../../assets/icons/empty-agents.png');
-const ADD_ICON = require('../../assets/icons/add-neuron.png');
 
 const PROVIDERS = [
   { label: 'OpenAI', value: 'openai' },
   { label: 'Gemini', value: 'gemini' },
   { label: 'Claude', value: 'claude' },
-  { label: 'Custom', value: 'custom_openai' },
+  { label: '自定义', value: 'custom_openai' },
 ];
 
 const DEFAULT_MODELS: Record<string, string> = {
@@ -24,8 +23,8 @@ const DEFAULT_MODELS: Record<string, string> = {
 };
 
 const AVAILABLE_TOOLS = [
-  { id: 'web_search', label: 'WEB', desc: '实时搜索网页信息' },
-  { id: 'rag_query', label: 'RAG', desc: '检索已上传的文档' },
+  { id: 'web_search', label: '联网搜索', desc: '实时搜索网页信息' },
+  { id: 'rag_query', label: '文档检索', desc: '检索已上传的文档' },
 ];
 
 export default function AgentsScreen() {
@@ -46,7 +45,7 @@ export default function AgentsScreen() {
   const handleAddAgent = async () => {
     if (!name.trim()) { Alert.alert('提示', '请输入名称'); return; }
     if (!apiKey.trim()) { Alert.alert('提示', '请输入 API Key'); return; }
-    if (provider === 'custom_openai' && !customBaseUrl.trim()) { Alert.alert('提示', '请输入 API Base URL'); return; }
+    if (provider === 'custom_openai' && !customBaseUrl.trim()) { Alert.alert('提示', '请输入 API 地址'); return; }
 
     const newAgent: Agent = {
       id: 'agent_' + Date.now(),
@@ -58,7 +57,7 @@ export default function AgentsScreen() {
       sequenceOrder: agents.length + 1,
       tools: selectedTools,
       temperature: parseFloat(temperature) || 0.7,
-      avatarColor: '#1A1A1A',
+      avatarColor: '#F0F0F0',
       supportsVision,
       customBaseUrl: customBaseUrl.trim(),
     };
@@ -77,7 +76,7 @@ export default function AgentsScreen() {
   };
 
   const handleDelete = (id: string, n: string) => {
-    Alert.alert('确认删除', `删除 ${n}？`, [
+    Alert.alert('确认删除', `确定要删除「${n}」吗？`, [
       { text: '取消', style: 'cancel' },
       { text: '删除', style: 'destructive', onPress: async () => { try { await api.deleteAgent(id); } catch {} removeAgent(id); } },
     ]);
@@ -91,7 +90,7 @@ export default function AgentsScreen() {
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardName}>{item.name}</Text>
-          <Text style={styles.cardMeta}>{item.provider.toUpperCase()} · {item.model}</Text>
+          <Text style={styles.cardMeta}>{item.provider === 'custom_openai' ? '自定义' : item.provider.toUpperCase()} · {item.model}</Text>
         </View>
         <TouchableOpacity onPress={() => handleDelete(item.id, item.name)} style={styles.deleteBtn}>
           <Text style={styles.deleteBtnText}>×</Text>
@@ -100,10 +99,10 @@ export default function AgentsScreen() {
       <Text style={styles.cardPersona} numberOfLines={2}>{item.persona}</Text>
       <View style={styles.cardFooter}>
         <Text style={styles.cardTag}>#{item.sequenceOrder}</Text>
-        <Text style={styles.cardTag}>T={item.temperature}</Text>
-        {item.tools.map((t) => <Text key={t} style={styles.cardToolTag}>{t === 'web_search' ? 'WEB' : 'RAG'}</Text>)}
-        {item.supportsVision && <Text style={styles.cardVisionTag}>VIS</Text>}
-        {item.customBaseUrl ? <Text style={styles.cardTag}>CUSTOM</Text> : null}
+        <Text style={styles.cardTag}>温度={item.temperature}</Text>
+        {item.tools.map((t) => <Text key={t} style={styles.cardToolTag}>{t === 'web_search' ? '联网' : '文档'}</Text>)}
+        {item.supportsVision && <Text style={styles.cardVisionTag}>视觉</Text>}
+        {item.customBaseUrl ? <Text style={styles.cardTag}>自定义</Text> : null}
       </View>
     </View>
   );
@@ -118,33 +117,33 @@ export default function AgentsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Image source={EMPTY_ICON} style={styles.emptyIcon} resizeMode="contain" />
-            <Text style={styles.emptyText}>NO NEURONS</Text>
-            <Text style={styles.emptyHint}>添加 AI Agent 激活突触网络</Text>
+            <Text style={styles.emptyText}>暂无成员</Text>
+            <Text style={styles.emptyHint}>添加 AI Agent 开始协作</Text>
           </View>
         }
       />
 
       <TouchableOpacity style={styles.addBtn} onPress={() => setShowForm(true)}>
-        <Text style={styles.addBtnText}>+ ADD NEURON</Text>
+        <Text style={styles.addBtnText}>+ 添加成员</Text>
       </TouchableOpacity>
 
       {/* Modal */}
       <Modal visible={showForm} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={resetForm}><Text style={styles.modalCancel}>CANCEL</Text></TouchableOpacity>
-            <Text style={styles.modalTitle}>NEW NEURON</Text>
-            <TouchableOpacity onPress={handleAddAgent}><Text style={styles.modalSave}>ACTIVATE</Text></TouchableOpacity>
+            <TouchableOpacity onPress={resetForm}><Text style={styles.modalCancel}>取消</Text></TouchableOpacity>
+            <Text style={styles.modalTitle}>新建成员</Text>
+            <TouchableOpacity onPress={handleAddAgent}><Text style={styles.modalSave}>确定</Text></TouchableOpacity>
           </View>
 
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
-            <Text style={styles.label}>NAME</Text>
-            <TextInput style={styles.textInput} value={name} onChangeText={setName} placeholder="如：资料搜集员" placeholderTextColor="#444" />
+            <Text style={styles.label}>名称</Text>
+            <TextInput style={styles.textInput} value={name} onChangeText={setName} placeholder="如：资料搜集员" placeholderTextColor="#BBB" />
 
-            <Text style={styles.label}>PERSONA</Text>
-            <TextInput style={[styles.textInput, styles.textArea]} value={persona} onChangeText={setPersona} placeholder="定义 AI 角色和行为风格..." placeholderTextColor="#444" multiline numberOfLines={4} />
+            <Text style={styles.label}>角色设定</Text>
+            <TextInput style={[styles.textInput, styles.textArea]} value={persona} onChangeText={setPersona} placeholder="定义 AI 角色和行为风格..." placeholderTextColor="#BBB" multiline numberOfLines={4} />
 
-            <Text style={styles.label}>PROVIDER</Text>
+            <Text style={styles.label}>供应商</Text>
             <View style={styles.providerRow}>
               {PROVIDERS.map((p) => (
                 <TouchableOpacity key={p.value} style={[styles.providerBtn, provider === p.value && styles.providerBtnActive]}
@@ -156,22 +155,22 @@ export default function AgentsScreen() {
 
             {provider === 'custom_openai' && (
               <>
-                <Text style={styles.label}>API BASE URL</Text>
+                <Text style={styles.label}>API 地址</Text>
                 <TextInput style={styles.textInput} value={customBaseUrl} onChangeText={setCustomBaseUrl}
-                  placeholder="https://api.deepseek.com/v1" placeholderTextColor="#444" autoCapitalize="none" autoCorrect={false} />
+                  placeholder="https://api.deepseek.com/v1" placeholderTextColor="#BBB" autoCapitalize="none" autoCorrect={false} />
               </>
             )}
 
-            <Text style={styles.label}>MODEL</Text>
-            <TextInput style={styles.textInput} value={model} onChangeText={setModel} placeholder="model name" placeholderTextColor="#444" />
+            <Text style={styles.label}>模型</Text>
+            <TextInput style={styles.textInput} value={model} onChangeText={setModel} placeholder="模型名称" placeholderTextColor="#BBB" />
 
-            <Text style={styles.label}>API KEY</Text>
-            <TextInput style={styles.textInput} value={apiKey} onChangeText={setApiKey} placeholder="sk-..." placeholderTextColor="#444" secureTextEntry />
+            <Text style={styles.label}>API 密钥</Text>
+            <TextInput style={styles.textInput} value={apiKey} onChangeText={setApiKey} placeholder="sk-..." placeholderTextColor="#BBB" secureTextEntry />
 
-            <Text style={styles.label}>TEMPERATURE ({temperature})</Text>
-            <TextInput style={styles.textInput} value={temperature} onChangeText={setTemperature} placeholder="0.7" placeholderTextColor="#444" keyboardType="decimal-pad" />
+            <Text style={styles.label}>温度 ({temperature})</Text>
+            <TextInput style={styles.textInput} value={temperature} onChangeText={setTemperature} placeholder="0.7" placeholderTextColor="#BBB" keyboardType="decimal-pad" />
 
-            <Text style={styles.label}>TOOLS</Text>
+            <Text style={styles.label}>工具</Text>
             <View style={styles.toolsRow}>
               {AVAILABLE_TOOLS.map((tool) => (
                 <TouchableOpacity key={tool.id} style={[styles.toolChip, selectedTools.includes(tool.id) && styles.toolChipActive]} onPress={() => toggleTool(tool.id)}>
@@ -183,10 +182,10 @@ export default function AgentsScreen() {
 
             <View style={styles.visionRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>VISION</Text>
-                <Text style={styles.visionHint}>启用图片理解能力</Text>
+                <Text style={styles.label}>图片理解</Text>
+                <Text style={styles.visionHint}>启用后可分析图片内容</Text>
               </View>
-              <Switch value={supportsVision} onValueChange={setSupportsVision} trackColor={{ false: '#262626', true: '#FFFFFF' }} thumbColor={supportsVision ? '#000' : '#555'} />
+              <Switch value={supportsVision} onValueChange={setSupportsVision} trackColor={{ false: '#E5E5E5', true: '#000000' }} thumbColor={supportsVision ? '#FFF' : '#CCC'} />
             </View>
 
             <View style={{ height: 60 }} />
@@ -198,60 +197,62 @@ export default function AgentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   list: { padding: 16, paddingBottom: 80 },
 
   // Card
-  card: { backgroundColor: '#0A0A0A', borderRadius: 2, padding: 16, marginBottom: 10, borderWidth: 0.5, borderColor: '#262626' },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: '#E5E5E5' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  cardAvatar: { width: 36, height: 36, borderRadius: 2, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center', marginRight: 10, borderWidth: 0.5, borderColor: '#333' },
-  cardAvatarText: { fontSize: 14, fontWeight: '700', color: '#888' },
+  cardAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  cardAvatarText: { fontSize: 14, fontWeight: '700', color: '#333' },
   cardInfo: { flex: 1 },
-  cardName: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  cardMeta: { fontSize: 10, color: '#555', marginTop: 2, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', letterSpacing: 0.5 },
-  deleteBtn: { width: 24, height: 24, borderRadius: 2, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center', borderWidth: 0.5, borderColor: '#333' },
-  deleteBtnText: { fontSize: 14, color: '#555', fontWeight: '300' },
-  cardPersona: { fontSize: 12, color: '#666', lineHeight: 16, marginBottom: 8 },
+  cardName: { fontSize: 15, fontWeight: '700', color: '#000000' },
+  cardMeta: { fontSize: 11, color: '#999', marginTop: 2 },
+  deleteBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center' },
+  deleteBtnText: { fontSize: 16, color: '#999' },
+  cardPersona: { fontSize: 12, color: '#666', marginBottom: 8, lineHeight: 18 },
   cardFooter: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  cardTag: { fontSize: 9, color: '#555', backgroundColor: '#111', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  cardToolTag: { fontSize: 9, color: '#888', backgroundColor: '#1A1A1A', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 1, borderWidth: 0.5, borderColor: '#333', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  cardVisionTag: { fontSize: 9, color: '#FFF', backgroundColor: '#333', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 1, fontWeight: '700', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  cardTag: { fontSize: 10, color: '#999', backgroundColor: '#F5F5F5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  cardToolTag: { fontSize: 10, color: '#333', backgroundColor: '#E8E8E8', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontWeight: '600' },
+  cardVisionTag: { fontSize: 10, color: '#FFF', backgroundColor: '#000', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontWeight: '600' },
 
   // Empty
   emptyContainer: { alignItems: 'center', paddingTop: 80 },
-  emptyIcon: { width: 80, height: 80, opacity: 0.15, marginBottom: 24, tintColor: '#FFFFFF' },
-  emptyText: { fontSize: 16, fontWeight: '700', color: '#333', letterSpacing: 4, marginBottom: 8 },
-  emptyHint: { fontSize: 12, color: '#333' },
+  emptyIcon: { width: 80, height: 80, opacity: 0.2, marginBottom: 24 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: '#999', marginBottom: 8 },
+  emptyHint: { fontSize: 12, color: '#BBB' },
 
   // Add button
-  addBtn: { position: 'absolute', bottom: 20, left: 16, right: 16, height: 48, backgroundColor: '#FFFFFF', borderRadius: 2, justifyContent: 'center', alignItems: 'center' },
-  addBtnText: { color: '#000000', fontSize: 12, fontWeight: '700', letterSpacing: 2, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  addBtn: { position: 'absolute', bottom: 24, left: 16, right: 16, height: 48, borderRadius: 24, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  addBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 
   // Modal
-  modalContainer: { flex: 1, backgroundColor: '#000000' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: '#262626' },
-  modalCancel: { fontSize: 11, color: '#555', letterSpacing: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  modalTitle: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', letterSpacing: 2, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  modalSave: { fontSize: 11, color: '#FFFFFF', fontWeight: '700', letterSpacing: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  form: { padding: 16 },
-  label: { fontSize: 10, fontWeight: '700', color: '#555', marginBottom: 6, marginTop: 16, letterSpacing: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  textInput: { backgroundColor: '#0D0D0D', borderRadius: 2, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#FFFFFF', borderWidth: 0.5, borderColor: '#262626' },
+  modalContainer: { flex: 1, backgroundColor: '#FFFFFF' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5' },
+  modalCancel: { fontSize: 15, color: '#999' },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#000000' },
+  modalSave: { fontSize: 15, fontWeight: '700', color: '#000000' },
+  form: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
+  label: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 16 },
+  textInput: { backgroundColor: '#F5F5F5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#000000' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
+
+  // Provider
   providerRow: { flexDirection: 'row', gap: 6 },
-  providerBtn: { flex: 1, paddingVertical: 10, borderRadius: 2, borderWidth: 0.5, borderColor: '#262626', alignItems: 'center', backgroundColor: '#0A0A0A' },
-  providerBtnActive: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
-  providerBtnText: { fontSize: 11, fontWeight: '700', color: '#555', letterSpacing: 0.5 },
-  providerBtnTextActive: { color: '#000000' },
+  providerBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F5F5F5' },
+  providerBtnActive: { backgroundColor: '#000000' },
+  providerBtnText: { fontSize: 12, fontWeight: '600', color: '#666' },
+  providerBtnTextActive: { color: '#FFFFFF' },
 
   // Tools
-  toolsRow: { gap: 6 },
-  toolChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 2, borderWidth: 0.5, borderColor: '#262626', backgroundColor: '#0A0A0A' },
-  toolChipActive: { borderColor: '#FFFFFF', backgroundColor: '#111' },
-  toolChipLabel: { fontSize: 10, fontWeight: '700', color: '#555', letterSpacing: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  toolsRow: { gap: 8 },
+  toolChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F5F5F5', gap: 8 },
+  toolChipActive: { backgroundColor: '#000000' },
+  toolChipLabel: { fontSize: 12, fontWeight: '700', color: '#333' },
   toolChipLabelActive: { color: '#FFFFFF' },
-  toolChipDesc: { fontSize: 11, color: '#444', marginTop: 2 },
+  toolChipDesc: { fontSize: 11, color: '#999' },
 
   // Vision
-  visionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingVertical: 8 },
-  visionHint: { fontSize: 10, color: '#444', marginTop: 2 },
+  visionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingVertical: 8 },
+  visionHint: { fontSize: 11, color: '#999', marginTop: 2 },
 });

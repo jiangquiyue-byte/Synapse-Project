@@ -6,10 +6,6 @@ import {
 import { useAppStore } from '../../stores/useAppStore';
 import { api } from '../../services/api';
 
-const SETTINGS_ICON = require('../../assets/icons/tab-settings.png');
-const CHAT_ICON = require('../../assets/icons/tab-chat.png');
-const AGENTS_ICON = require('../../assets/icons/tab-agents.png');
-
 export default function SettingsScreen() {
   const { backendUrl, setBackendUrl, totalCostUsd, agents } = useAppStore();
   const [urlInput, setUrlInput] = useState(backendUrl);
@@ -34,61 +30,51 @@ export default function SettingsScreen() {
     }
   };
 
-  const statusColors = { idle: '#333', testing: '#888', ok: '#FFFFFF', error: '#555' };
-  const statusLabels = { idle: 'OFFLINE', testing: 'PROBING...', ok: 'CONNECTED', error: 'SIGNAL LOST' };
+  const statusColors = { idle: '#CCC', testing: '#999', ok: '#4CAF50', error: '#F44336' };
+  const statusLabels = { idle: '未连接', testing: '检测中...', ok: '已连接', error: '连接失败' };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Connection */}
-      <View style={styles.sectionHeader}>
-        <Image source={CHAT_ICON} style={styles.sectionIcon} resizeMode="contain" />
-        <Text style={styles.sectionTitle}>SYNAPSE LINK</Text>
-      </View>
+      <Text style={styles.sectionTitle}>后端连接</Text>
       <View style={styles.card}>
-        <Text style={styles.label}>ENDPOINT</Text>
+        <Text style={styles.label}>服务器地址</Text>
         <TextInput style={styles.textInput} value={urlInput} onChangeText={setUrlInput}
-          placeholder="https://synapse-project-seven.vercel.app" placeholderTextColor="#333" autoCapitalize="none" autoCorrect={false} />
+          placeholder="https://synapse-project-seven.vercel.app" placeholderTextColor="#BBB" autoCapitalize="none" autoCorrect={false} />
         <View style={styles.connectionRow}>
           <View style={styles.statusRow}>
             <View style={[styles.statusDot, { backgroundColor: statusColors[connectionStatus] }]} />
             <Text style={styles.statusText}>{statusLabels[connectionStatus]}</Text>
           </View>
           <TouchableOpacity style={styles.testBtn} onPress={testConnection}>
-            <Text style={styles.testBtnText}>PROBE</Text>
+            <Text style={styles.testBtnText}>测试连接</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Stats */}
-      <View style={styles.sectionHeader}>
-        <Image source={AGENTS_ICON} style={styles.sectionIcon} resizeMode="contain" />
-        <Text style={styles.sectionTitle}>ENERGY STATS</Text>
-      </View>
+      <Text style={styles.sectionTitle}>使用统计</Text>
       <View style={styles.card}>
         <View style={styles.costRow}>
-          <Text style={styles.costLabel}>TOTAL COST</Text>
+          <Text style={styles.costLabel}>累计花费</Text>
           <Text style={styles.costValue}>${totalCostUsd.toFixed(6)}</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.costRow}>
-          <Text style={styles.costLabel}>NEURONS</Text>
+          <Text style={styles.costLabel}>成员数量</Text>
           <Text style={styles.costValue}>{agents.length}</Text>
         </View>
       </View>
 
       {/* About */}
-      <View style={styles.sectionHeader}>
-        <Image source={SETTINGS_ICON} style={styles.sectionIcon} resizeMode="contain" />
-        <Text style={styles.sectionTitle}>ABOUT</Text>
-      </View>
+      <Text style={styles.sectionTitle}>关于</Text>
       <View style={styles.card}>
-        <Image source={SETTINGS_ICON} style={styles.aboutLogo} resizeMode="contain" />
-        <Text style={styles.aboutTitle}>S Y N A P S E</Text>
+        <Text style={styles.aboutTitle}>Synapse</Text>
         <Text style={styles.aboutSubtitle}>突触 · 连接智慧，协同思考</Text>
         <Text style={styles.aboutVersion}>v2.1.0</Text>
         <Text style={styles.aboutDesc}>
-          Multi-Agent Collaborative Chat System{'\n'}
-          多智能体群聊协作系统
+          多智能体群聊协作系统{'\n'}
+          Multi-Agent Collaborative Chat
         </Text>
       </View>
     </ScrollView>
@@ -96,27 +82,24 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   content: { padding: 16, paddingBottom: 40 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 20, gap: 8 },
-  sectionIcon: { width: 22, height: 22, opacity: 0.3, tintColor: '#FFFFFF' },
-  sectionTitle: { fontSize: 10, fontWeight: '700', color: '#555', letterSpacing: 2, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  card: { backgroundColor: '#0A0A0A', borderRadius: 2, padding: 16, borderWidth: 0.5, borderColor: '#262626' },
-  label: { fontSize: 10, fontWeight: '700', color: '#555', marginBottom: 6, letterSpacing: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  textInput: { backgroundColor: '#0D0D0D', borderRadius: 2, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#FFFFFF', borderWidth: 0.5, borderColor: '#262626' },
+  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#999', marginBottom: 8, marginTop: 24 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, borderWidth: 0.5, borderColor: '#E5E5E5' },
+  label: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 6 },
+  textInput: { backgroundColor: '#F5F5F5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#000000' },
   connectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statusDot: { width: 6, height: 6, borderRadius: 1 },
-  statusText: { fontSize: 10, color: '#555', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', letterSpacing: 1 },
-  testBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#FFFFFF', borderRadius: 2 },
-  testBtnText: { color: '#000000', fontSize: 10, fontWeight: '700', letterSpacing: 1, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  costRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  costLabel: { fontSize: 10, color: '#555', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', letterSpacing: 1 },
-  costValue: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  divider: { height: 0.5, backgroundColor: '#262626' },
-  aboutLogo: { width: 72, height: 72, opacity: 0.1, alignSelf: 'center', marginBottom: 16, tintColor: '#FFFFFF' },
-  aboutTitle: { fontSize: 22, fontWeight: '200', letterSpacing: 6, color: '#FFFFFF', textAlign: 'center', marginBottom: 4 },
-  aboutSubtitle: { fontSize: 13, color: '#555', textAlign: 'center', marginBottom: 12 },
-  aboutVersion: { fontSize: 10, color: '#333', textAlign: 'center', marginBottom: 8, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', letterSpacing: 1 },
-  aboutDesc: { fontSize: 12, color: '#444', textAlign: 'center', lineHeight: 18 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusText: { fontSize: 12, color: '#666' },
+  testBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#000000', borderRadius: 20 },
+  testBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+  costRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
+  costLabel: { fontSize: 13, color: '#666' },
+  costValue: { fontSize: 17, fontWeight: '700', color: '#000000', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  divider: { height: 0.5, backgroundColor: '#E5E5E5' },
+  aboutTitle: { fontSize: 24, fontWeight: '300', letterSpacing: 4, color: '#000000', textAlign: 'center', marginBottom: 4, marginTop: 8 },
+  aboutSubtitle: { fontSize: 13, color: '#999', textAlign: 'center', marginBottom: 12 },
+  aboutVersion: { fontSize: 11, color: '#BBB', textAlign: 'center', marginBottom: 8 },
+  aboutDesc: { fontSize: 12, color: '#999', textAlign: 'center', lineHeight: 18 },
 });

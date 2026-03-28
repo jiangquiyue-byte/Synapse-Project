@@ -32,6 +32,21 @@ class AgentConfig(BaseModel):
     custom_base_url: str = ""
 
 
+class InlineAgentConfig(BaseModel):
+    """Agent config sent inline with chat request (for stateless Serverless)."""
+    id: str
+    name: str
+    persona: str
+    provider: str
+    model: str
+    api_key: str = ""
+    sequence_order: int = 0
+    tools: list[str] = []
+    temperature: float = 0.7
+    supports_vision: bool = False
+    custom_base_url: str = ""
+
+
 class ChatMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     role: str
@@ -46,12 +61,13 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str
     user_message: str
-    agent_ids: list[str]
+    agent_ids: list[str] = []
     mode: DiscussionMode = DiscussionMode.SEQUENTIAL
     target_agent_id: Optional[str] = None
     max_debate_rounds: int = 3
     branch_from_message_id: Optional[str] = None
     image_base64: Optional[str] = None
+    inline_agents: Optional[list[InlineAgentConfig]] = None
 
 
 class WorkflowTemplate(BaseModel):
