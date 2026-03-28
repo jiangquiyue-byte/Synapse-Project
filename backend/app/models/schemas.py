@@ -8,6 +8,7 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
     GEMINI = "gemini"
     CLAUDE = "claude"
+    CUSTOM_OPENAI = "custom_openai"
 
 
 class DiscussionMode(str, Enum):
@@ -28,6 +29,7 @@ class AgentConfig(BaseModel):
     tools: list[str] = []
     temperature: float = 0.7
     supports_vision: bool = False
+    custom_base_url: str = ""
 
 
 class ChatMessage(BaseModel):

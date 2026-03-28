@@ -4,7 +4,7 @@ export interface Agent {
   id: string;
   name: string;
   persona: string;
-  provider: 'openai' | 'gemini' | 'claude';
+  provider: 'openai' | 'gemini' | 'claude' | 'custom_openai';
   model: string;
   apiKey: string;
   sequenceOrder: number;
@@ -12,6 +12,7 @@ export interface Agent {
   temperature: number;
   avatarColor: string;
   supportsVision: boolean;
+  customBaseUrl: string;
 }
 
 export interface Message {
