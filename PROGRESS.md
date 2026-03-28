@@ -4,7 +4,7 @@
 
 ## [Current Status]
 
-**M4 智能增强 ✅ + UI 重构 ✅ + 后端兼容性加固 ✅ + 聊天修复 ✅ 全部完成。**
+**M4 智能增强 ✅ + UI 重构 ✅ + 后端兼容性加固 ✅ + 聊天修复 ✅ + 连通性修复 ✅ 全部完成。App 已在手机端正常运行并可对话。**
 
 ### 核心交棒信息
 
@@ -22,6 +22,7 @@
 5. **Expo Go 蓝屏修复**：删除冲突的 `pnpm-lock.yaml`（锁定 SDK 55 依赖）+ 移除 `tintColor` 样式属性 + 清理 Metro 缓存。
 6. **Serverless 聊天失败修复**：新增 `inline_agents` 机制，前端每次聊天请求直接携带完整 Agent 配置（含 API Key），彻底绕过 Vercel Serverless 无状态内存限制。
 7. **No response body 修复**：React Native 的 `fetch` 不支持 `response.body`（ReadableStream），导致 SSE 流式读取失败。新增 `/api/chat/send` 非流式 JSON 端点，前端改用标准 fetch + JSON 方式通信，彻底解决兼容性问题。
+8. **图标资源过大导致蓝屏**：原始图标每个 4-7MB（共 ~100MB），Expo Go 通过 tunnel 加载时内存溢出/超时崩溃。压缩至 64x64/128x128 优化 PNG（共 ~24KB），彻底解决。
 
 ---
 
@@ -146,6 +147,9 @@
 
 | 提交 | 说明 |
 |------|------|
+| `1871015` | fix: compress icons from ~100MB to ~24KB, fix Expo Go crash |
+| `3db8222` | docs: update PROGRESS.md - No response body fix recorded |
+| `d9811dc` | fix: non-streaming /chat/send endpoint for React Native compatibility |
 | `fc51902` | fix: inline_agents for stateless Serverless chat + white UI + Chinese labels |
 | `ed4d757` | feat: full UI overhaul - black lab aesthetic + input redesign + custom provider |
 | `8f22492` | feat: add custom_openai provider + global JSON error handling |
@@ -157,4 +161,4 @@
 
 ---
 
-*最后更新: 2026-03-28 (蓝屏修复 + 聊天修复 + 白底黑字 UI + 全中文)*
+*最后更新: 2026-03-28 (全部修复完成，App 正常运行 + DeepSeek 对话验证通过)*
