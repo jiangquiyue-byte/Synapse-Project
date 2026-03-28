@@ -4,12 +4,13 @@
 
 ## [Current Status]
 
-**P1 Vercel 部署 ✅ + M3 讨论模式（辩论/投票/单点）✅ + Expo SDK 54 升级 ✅ 已全部完成并验证。**
+**M4 智能增强阶段 ✅ 已全部完成。RAG 管道、联网搜索、多模态图片分析三大核心功能均已实现并推送。**
 
 ### 核心交棒信息
 
 * **当前后端 URL**：`https://synapse-project-seven.vercel.app`
 * **环境说明**：当前前端项目完全依赖 **Expo SDK 54**（React 19.1.0, React Native 0.81.5），**不可降级**。所有依赖已通过 `npx expo install --fix` 完美对齐。
+* **M4 新增环境变量**：`TAVILY_API_KEY`（联网搜索功能需要）
 
 ### 已解决的坑
 1. **SDK 51 到 54 的升级适配**：解决了 Expo SDK 54 对 React 19.1.0 和 React Native 0.81.5 的严格 peer dependency 要求，清理了旧缓存并完成了全量依赖对齐。
@@ -20,16 +21,17 @@
 
 ## [Next Plan] (待办清单)
 
-### 优先级 P0：启动 M4 里程碑
-* **RAG 管道**：实现检索增强生成，接入外部知识库。
-* **Tavily 搜索**：集成 Tavily API，赋予 Agent 实时联网搜索能力。
-* **多模态图片识别**：支持用户上传图片，并由具备 Vision 能力的 Agent（如 gpt-4.1-mini）进行分析和讨论。
+### 优先级 P0：Vercel 重新部署
+* 需要重新部署 Vercel 以使 M4 新增的后端代码生效（rag_pipeline.py, web_search.py, image_analyzer.py）
+* 需要在 Vercel 添加环境变量 `TAVILY_API_KEY`
+
+### 优先级 P1：启动 M5 里程碑
+* **持久化存储**：将内存存储迁移至 PostgreSQL + pgvector
+* **对话记忆**：跨会话上下文记忆
+* **工作流模板市场**：预置常用工作流模板
 
 ### 优先级 P3：Token 级流式输出（可选优化）
 当前实现是 agent 级别的流式（每个 agent 完成后一次性发送），可升级为 token 级别的流式（逐字输出）。
-
-### 优先级 P4：持久化存储
-将内存存储迁移至 PostgreSQL + pgvector。
 
 ---
 
@@ -52,11 +54,54 @@
 |--------|------|------|-------------|
 | `OPENAI_API_KEY` | ✅ 是 | OpenAI API Key，用于 synthesizer 节点和 Agent 的环境变量回退 | ✅ 已设置 |
 | `OPENAI_BASE_URL` | ✅ 是 | OpenAI 兼容 API 的 Base URL | ✅ 已设置 |
+| `TAVILY_API_KEY` | ✅ 是 (M4 新增) | Tavily 搜索 API Key，用于联网搜索功能 | ⚠️ 待设置 |
 | `ENCRYPTION_KEY` | 否（有默认值） | Fernet 加密密钥，默认 `ghszRjI0495ouFAPRF-V_GahG3nSc8tlmeM_KKCzDCE=` | 使用默认值 |
 
 ---
 
 ## [Completed]
+
+### M4: 智能增强 ✅ (2026-03-28)
+
+#### 4.1 RAG 管道 ✅
+* `backend/app/services/rag_pipeline.py` - 完整 RAG 管道实现
+  * 文档解析: PDF (PyMuPDF), DOCX (python-docx), TXT, MD
+  * 文本分块: RecursiveCharacterTextSplitter (1000 chars, 200 overlap)
+  * 向量化: OpenAI text-embedding-3-small
+  * 检索: 余弦相似度向量搜索 + 关键词回退
+  * 内存向量存储 (按 session_id 隔离)
+* `backend/app/routers/upload.py` - 文件上传 API
+  * POST /api/upload/ - 上传文档并自动向量化
+  * POST /api/upload/query - 查询文档
+  * GET /api/upload/documents/{session_id} - 列出已上传文档
+  * DELETE /api/upload/documents/{session_id} - 清除文档
+* `backend/app/routers/chat.py` - RAG 上下文自动注入
+* `mobile/services/api.ts` - 前端 API 集成 (uploadDocument, queryDocuments, listDocuments)
+* `mobile/app/(tabs)/index.tsx` - 前端文档上传按钮 (📎)
+
+#### 4.2 联网搜索 ✅
+* `backend/app/services/web_search.py` - Tavily API 集成
+  * web_search_tool: LangGraph @tool 装饰器，支持 LLM function calling
+  * web_search_async: 异步搜索 API
+  * 环境变量: TAVILY_API_KEY
+* `backend/app/services/orchestrator.py` - 工具绑定机制
+  * _get_tools_for_agent(): 根据 Agent 配置动态加载工具
+  * LLM.bind_tools() 实现 function calling
+  * 工具调用结果回传 LLM 生成最终回复
+  * 工具绑定失败时优雅降级
+
+#### 4.3 多模态增强 ✅
+* `backend/app/services/image_analyzer.py` - 图片分析服务
+  * analyze_image_standalone(): 独立图片分析
+  * build_vision_messages(): 构建视觉消息格式
+* `backend/app/services/orchestrator.py` - Vision 集成
+  * Agent supports_vision=True 时自动构建多模态消息
+* `mobile/app/(tabs)/index.tsx` - 图片选择器 (🖼) + 图片预览条
+* `mobile/app/(tabs)/agents.tsx` - 工具选择 UI + Vision 开关
+
+#### 4.4 其他改进
+* `backend/app/services/cost_tracker.py` - 新增 gpt-4.1-mini, gpt-4.1-nano, gemini-2.5-flash 定价
+* `backend/requirements.txt` & `backend/api/requirements.txt` - 新增 PyMuPDF, python-docx, tavily-python
 
 ### P1: Vercel 部署 ✅ (2026-03-28)
 
@@ -72,15 +117,15 @@
 | 模式 | 标识 | 图结构 | 说明 |
 |------|------|--------|------|
 | 顺序发言 | `sequential` | A1 → A2 → A3 → END | 默认模式，Agent 按顺序依次发言 |
-| 辩论模式 | `debate` | [A1→A2→A3] → round_counter × N轮 → Synthesizer → END | Agent 互相质询，可查看前序发言并反驳，round_counter 节点正确递增辩论轮次 |
-| 投票模式 | `vote` | A1 → A2 → A3 → Synthesizer → END | 每个 Agent 独立回答（vote 模式下 prev_msgs 被隐藏），综合器统计共识与分歧 |
-| 指定发言 | `single` (@提及) | A_target → END | 用户通过 @名称 或 target_agent_id 指定某一个 Agent 回复 |
+| 辩论模式 | `debate` | [A1→A2→A3] → round_counter × N轮 → Synthesizer → END | Agent 互相质询，round_counter 正确递增辩论轮次 |
+| 投票模式 | `vote` | A1 → A2 → A3 → Synthesizer → END | 每个 Agent 独立回答，综合器统计共识与分歧 |
+| 指定发言 | `single` (@提及) | A_target → END | 用户通过 @名称 指定某一个 Agent 回复 |
 
 **前端 M3 改进：**
-1. **Synthesizer 特殊 UI**：综合结论使用全宽卡片样式，黑色左边框 + 深色图标，与普通 Agent 气泡区分。
-2. **模式提示栏**：在模式选择器下方显示当前模式描述（如"辩论模式 · 3 轮交锋"）。
-3. **@提及改进**：支持消息任意位置的 @名称 匹配（原来仅支持开头）。
-4. **SSEClient 修复**：改进事件边界处理，正确处理 SSE 空行分隔和事件类型重置。
+1. **Synthesizer 特殊 UI**：综合结论使用全宽卡片样式，黑色左边框 + 深色图标
+2. **模式提示栏**：在模式选择器下方显示当前模式描述
+3. **@提及改进**：支持消息任意位置的 @名称 匹配
+4. **SSEClient 修复**：改进事件边界处理
 
 ### M1: 后端骨架 (FastAPI + LangGraph)
 后端采用 FastAPI 框架，项目结构位于 `backend/` 目录下。已完成核心路由（chat, agents, workflows, memory 等）和服务层（orchestrator, agent_factory, cost_tracker 等）。
@@ -103,6 +148,7 @@
 | 后端框架 | FastAPI (Python 3.11) |
 | 编排引擎 | LangGraph |
 | 通信协议 | SSE (Server-Sent Events) |
+| AI 工具 | Tavily (搜索), PyMuPDF (PDF), python-docx (DOCX) |
 | 数据存储 | 内存存储 (开发阶段) → PostgreSQL + pgvector (生产) |
 | 部署平台 | Vercel (Serverless Python) |
 | 版本控制 | GitHub (`jiangquiyue-byte/Synapse-Project`) |
@@ -113,7 +159,10 @@
 
 | 提交 | 说明 |
 |------|------|
-| (pending) | Milestone: SDK 54 Fixed, M3 Modes Verified, Vercel Live |
+| `912c70d` | feat(M4): implement multimodal image analysis and update cost tracker |
+| `d169147` | feat(M4): implement web search with Tavily API integration |
+| `89c4095` | feat(M4): implement RAG pipeline with in-memory vector store |
+| `a693ccc` | Milestone: SDK 54 Fixed, M3 Modes Verified, Vercel Live |
 | `6a9e579` | feat: upgrade Expo SDK 51 → 54 for Expo Go compatibility |
 | `b1a4539` | fix: downgrade Expo SDK 55 → 51 for Expo Go compatibility |
 | `fabf09f` | docs: update PROGRESS.md - P1 Vercel deployment + M3 discussion modes complete |
@@ -123,4 +172,4 @@
 
 ---
 
-*最后更新: 2026-03-28 (SDK 54 升级完成，M3 验证通过，Vercel 部署上线，准备交棒)*
+*最后更新: 2026-03-28 (M4 智能增强完成：RAG 管道、联网搜索、多模态图片分析)*
