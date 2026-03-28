@@ -4,7 +4,7 @@
 
 ## [Current Status]
 
-**M4 智能增强 ✅ + UI 重构 ✅ + 后端兼容性加固 ✅ 全部完成。**
+**M4 智能增强 ✅ + UI 重构 ✅ + 后端兼容性加固 ✅ + 聊天修复 ✅ 全部完成。**
 
 ### 核心交棒信息
 
@@ -12,20 +12,22 @@
 * **环境说明**：当前前端项目完全依赖 **Expo SDK 54**（React 19.1.0, React Native 0.81.5），**不可降级**。
 * **M4 新增环境变量**：`TAVILY_API_KEY`（联网搜索功能需要）
 * **版本号**：v2.1.0
+* **UI 风格**：白底黑字简洁风格，全中文按钮和标签
 
 ### 已解决的坑
 1. **SDK 51 到 54 的升级适配**：解决了 Expo SDK 54 对 React 19.1.0 和 React Native 0.81.5 的严格 peer dependency 要求。
 2. **Vercel 环境变量换行符修复**：修复了 Vercel CLI 设置 `OPENAI_BASE_URL` 时引入尾部换行符的问题。
 3. **多智能体无限循环 Bug 修复**：修复了 `debate_round` 从未递增导致辩论模式无限循环的问题。
 4. **JSON Parse Error 修复**：前端 `safeJson()` 包装器 + 后端全局异常处理，确保任何情况下都返回合法 JSON。
+5. **Expo Go 蓝屏修复**：删除冲突的 `pnpm-lock.yaml`（锁定 SDK 55 依赖）+ 移除 `tintColor` 样式属性 + 清理 Metro 缓存。
+6. **Serverless 聊天失败修复**：新增 `inline_agents` 机制，前端每次聊天请求直接携带完整 Agent 配置（含 API Key），彻底绕过 Vercel Serverless 无状态内存限制。
 
 ---
 
 ## [Next Plan] (待办清单)
 
-### 优先级 P0：Vercel 重新部署
-* 需要重新部署 Vercel 以使新增后端代码生效
-* 需要在 Vercel 添加环境变量 `TAVILY_API_KEY`
+### 优先级 P0：Vercel 环境变量
+* 需要在 Vercel 添加环境变量 `TAVILY_API_KEY` 以启用联网搜索
 
 ### 优先级 P1：启动 M5 里程碑
 * **持久化存储**：将内存存储迁移至 PostgreSQL + pgvector
@@ -61,25 +63,36 @@
 
 ## [Completed]
 
-### UI 重构：黑白实验室风格 ✅ (2026-03-28)
+### Expo Go 蓝屏修复 + 聊天修复 ✅ (2026-03-28)
 
-**设计语言：**
-* 色调：背景 #000000，文字 #FFFFFF，边框 #262626
-* 组件：直角设计（borderRadius: 2），去除阴影，monospace 字体标签
-* 输入区：底部悬浮式设计，极简线条
+**蓝屏问题：**
+* 根因：`pnpm-lock.yaml` 锁定 SDK 55/RN 0.83/React 19.2 依赖，与 package.json 的 SDK 54 冲突
+* 修复：删除 pnpm-lock.yaml + 移除所有 tintColor 样式 + 清理 Metro 缓存
+
+**聊天不通问题：**
+* 根因：Vercel Serverless 无状态，Agent 保存在内存中，chat 请求可能路由到不同实例
+* 修复：新增 `inline_agents` 字段，前端发送聊天时直接携带完整 Agent 配置
+* 验证：DeepSeek (custom_openai) 端到端测试通过
+
+**UI 调整：**
+* 从黑底白字改为白底黑字简洁风格
+* 所有按钮和标签改为中文
+
+### UI 重构 ✅ (2026-03-28)
 
 **输入框交互重构：**
 * 左侧 `+` 按钮：弹出菜单支持「上传图片」和「上传文档」
-* 模式药丸切换器：SEQ/DBT/VOT/@1 快速切换讨论模式
+* 模式药丸切换器：顺序/辩论/投票/指定 快速切换讨论模式
 * 图片预览条：选择图片后在输入栏上方显示缩略图
 
 **后端兼容性加固：**
 * `agent_factory.py`：新增 `custom_openai` 供应商，支持自定义 base_url（DeepSeek、Qwen 等国内 API）
-* `schemas.py`：新增 `CUSTOM_OPENAI` 枚举、`custom_base_url` 字段
+* `schemas.py`：新增 `CUSTOM_OPENAI` 枚举、`custom_base_url` 字段、`InlineAgentConfig` 模型
+* `chat.py`：优先使用 `inline_agents`，回退到内存查找
 * `main.py`：全局异常处理器（500/404/422），确保始终返回 JSON
 * `upload.py`：所有端点 try-catch 包装，返回标准 JSON 错误
 * `api.ts`：`safeJson()` 包装器，防止非 JSON 响应导致前端崩溃
-* `agents.tsx`：Agent 编辑页新增 Custom 供应商选项和 API Base URL 输入框
+* `agents.tsx`：Agent 编辑页新增「自定义」供应商选项和 API 地址输入框
 
 ### M4: 智能增强 ✅ (2026-03-28)
 
@@ -132,6 +145,7 @@
 
 | 提交 | 说明 |
 |------|------|
+| `fc51902` | fix: inline_agents for stateless Serverless chat + white UI + Chinese labels |
 | `ed4d757` | feat: full UI overhaul - black lab aesthetic + input redesign + custom provider |
 | `8f22492` | feat: add custom_openai provider + global JSON error handling |
 | `bf3b9ba` | docs: update PROGRESS.md - M4 milestone complete |
@@ -139,13 +153,7 @@
 | `d169147` | feat(M4): implement web search with Tavily API integration |
 | `89c4095` | feat(M4): implement RAG pipeline with in-memory vector store |
 | `a693ccc` | Milestone: SDK 54 Fixed, M3 Modes Verified, Vercel Live |
-| `6a9e579` | feat: upgrade Expo SDK 51 → 54 for Expo Go compatibility |
-| `b1a4539` | fix: downgrade Expo SDK 55 → 51 for Expo Go compatibility |
-| `fabf09f` | docs: update PROGRESS.md - P1 Vercel deployment + M3 discussion modes complete |
-| `bb08300` | feat(M3): implement debate/vote/single discussion modes |
-| `e25b05c` | feat(P1): Vercel deployment complete - update frontend production URL |
-| `7659e17` | feat: add Vercel deployment config for FastAPI backend |
 
 ---
 
-*最后更新: 2026-03-28 (UI 重构 + 后端兼容性加固完成)*
+*最后更新: 2026-03-28 (蓝屏修复 + 聊天修复 + 白底黑字 UI + 全中文)*
