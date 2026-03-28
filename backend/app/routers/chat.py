@@ -6,6 +6,7 @@ from app.models.database import (
     get_agent, add_session_message, get_messages_until
 )
 from app.services.orchestrator import build_graph, ConversationState
+from app.services.rag_pipeline import retrieve_rag_context
 import json
 from uuid import uuid4
 
@@ -58,12 +59,22 @@ async def stream_chat(request: ChatRequest):
         request.max_debate_rounds
     )
 
+    # Retrieve RAG context if documents are uploaded for this session
+    rag_context = ""
+    try:
+        rag_context = await retrieve_rag_context(
+            request.session_id, request.user_message, k=5
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
     initial_state = ConversationState(
         messages=initial_messages,
         current_agent_index=0,
         agent_configs=agent_configs,
         user_query=request.user_message,
-        rag_context="",
+        rag_context=rag_context,
         mode=request.mode.value,
         debate_round=0,
         max_debate_rounds=request.max_debate_rounds,

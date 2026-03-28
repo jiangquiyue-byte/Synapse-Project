@@ -13,3 +13,6 @@ langchain-google-genai
 langchain-anthropic
 langgraph
 tiktoken
+PyMuPDF
+python-docx
+tavily-python

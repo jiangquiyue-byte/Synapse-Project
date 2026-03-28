@@ -10,6 +10,7 @@ import {
   ScrollView,
   Alert,
   Modal,
+  Switch,
 } from 'react-native';
 import { useAppStore, Agent } from '../../stores/useAppStore';
 import { api } from '../../services/api';
@@ -24,10 +25,15 @@ const PROVIDERS = [
 ];
 
 const DEFAULT_MODELS: Record<string, string> = {
-  openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.0-flash',
+  openai: 'gpt-4.1-mini',
+  gemini: 'gemini-2.5-flash',
   claude: 'claude-sonnet-4-20250514',
 };
+
+const AVAILABLE_TOOLS = [
+  { id: 'web_search', label: '联网搜索', desc: '实时搜索网页信息' },
+  { id: 'rag_query', label: 'RAG 文档', desc: '检索已上传的文档' },
+];
 
 export default function AgentsScreen() {
   const { agents, addAgent, removeAgent, backendUrl } = useAppStore();
@@ -35,9 +41,19 @@ export default function AgentsScreen() {
   const [name, setName] = useState('');
   const [persona, setPersona] = useState('');
   const [provider, setProvider] = useState<'openai' | 'gemini' | 'claude'>('openai');
-  const [model, setModel] = useState('gpt-4o-mini');
+  const [model, setModel] = useState('gpt-4.1-mini');
   const [apiKey, setApiKey] = useState('');
   const [temperature, setTemperature] = useState('0.7');
+  const [selectedTools, setSelectedTools] = useState<string[]>([]);
+  const [supportsVision, setSupportsVision] = useState(false);
+
+  const toggleTool = (toolId: string) => {
+    setSelectedTools((prev) =>
+      prev.includes(toolId)
+        ? prev.filter((t) => t !== toolId)
+        : [...prev, toolId]
+    );
+  };
 
   const handleAddAgent = async () => {
     if (!name.trim()) {
@@ -57,21 +73,20 @@ export default function AgentsScreen() {
       model: model || DEFAULT_MODELS[provider],
       apiKey: apiKey.trim(),
       sequenceOrder: agents.length + 1,
-      tools: [],
+      tools: selectedTools,
       temperature: parseFloat(temperature) || 0.7,
       avatarColor: '#E0E0E0',
-      supportsVision: false,
+      supportsVision,
     };
 
-    if (backendUrl) {
-      try {
-        await api.createAgent({
-          ...newAgent,
-          api_key_encrypted: newAgent.apiKey,
-        });
-      } catch (e) {
-        // Continue with local storage
-      }
+    // Always sync to backend (uses default Vercel URL)
+    try {
+      await api.createAgent({
+        ...newAgent,
+        api_key_encrypted: newAgent.apiKey,
+      });
+    } catch (e) {
+      // Continue with local storage
     }
 
     addAgent(newAgent);
@@ -83,9 +98,11 @@ export default function AgentsScreen() {
     setName('');
     setPersona('');
     setProvider('openai');
-    setModel('gpt-4o-mini');
+    setModel('gpt-4.1-mini');
     setApiKey('');
     setTemperature('0.7');
+    setSelectedTools([]);
+    setSupportsVision(false);
   };
 
   const handleDelete = (id: string, agentName: string) => {
@@ -94,7 +111,12 @@ export default function AgentsScreen() {
       {
         text: '删除',
         style: 'destructive',
-        onPress: () => removeAgent(id),
+        onPress: async () => {
+          try {
+            await api.deleteAgent(id);
+          } catch (e) {}
+          removeAgent(id);
+        },
       },
     ]);
   };
@@ -128,6 +150,14 @@ export default function AgentsScreen() {
       <View style={styles.agentFooter}>
         <Text style={styles.agentOrder}>#{item.sequenceOrder}</Text>
         <Text style={styles.agentTemp}>T={item.temperature}</Text>
+        {item.tools.length > 0 && (
+          <Text style={styles.agentTools}>
+            {item.tools.map(t => t === 'web_search' ? '搜索' : t === 'rag_query' ? 'RAG' : t).join(' · ')}
+          </Text>
+        )}
+        {item.supportsVision && (
+          <Text style={styles.agentVision}>视觉</Text>
+        )}
       </View>
     </View>
   );
@@ -152,7 +182,7 @@ export default function AgentsScreen() {
         }
       />
 
-      {/* Add button with synapse icon */}
+      {/* Add button */}
       <TouchableOpacity
         style={styles.addBtn}
         onPress={() => setShowForm(true)}
@@ -230,7 +260,7 @@ export default function AgentsScreen() {
               style={styles.textInput}
               value={model}
               onChangeText={setModel}
-              placeholder="gpt-4o-mini"
+              placeholder="gpt-4.1-mini"
               placeholderTextColor="#BBB"
             />
 
@@ -253,6 +283,49 @@ export default function AgentsScreen() {
               placeholderTextColor="#BBB"
               keyboardType="decimal-pad"
             />
+
+            {/* Tools selection */}
+            <Text style={styles.label}>可用工具</Text>
+            <View style={styles.toolsContainer}>
+              {AVAILABLE_TOOLS.map((tool) => (
+                <TouchableOpacity
+                  key={tool.id}
+                  style={[
+                    styles.toolChip,
+                    selectedTools.includes(tool.id) && styles.toolChipActive,
+                  ]}
+                  onPress={() => toggleTool(tool.id)}
+                >
+                  <Text
+                    style={[
+                      styles.toolChipText,
+                      selectedTools.includes(tool.id) && styles.toolChipTextActive,
+                    ]}
+                  >
+                    {tool.label}
+                  </Text>
+                  <Text style={styles.toolChipDesc}>{tool.desc}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Vision toggle */}
+            <View style={styles.visionRow}>
+              <View style={styles.visionInfo}>
+                <Text style={styles.label}>图片理解能力</Text>
+                <Text style={styles.visionHint}>
+                  启用后可分析群聊中发送的图片
+                </Text>
+              </View>
+              <Switch
+                value={supportsVision}
+                onValueChange={setSupportsVision}
+                trackColor={{ false: '#E5E5E5', true: '#000' }}
+                thumbColor="#FFF"
+              />
+            </View>
+
+            <View style={{ height: 60 }} />
           </ScrollView>
         </View>
       </Modal>
@@ -331,6 +404,7 @@ const styles = StyleSheet.create({
   agentFooter: {
     flexDirection: 'row',
     gap: 12,
+    flexWrap: 'wrap',
   },
   agentOrder: {
     fontSize: 11,
@@ -340,6 +414,23 @@ const styles = StyleSheet.create({
   agentTemp: {
     fontSize: 11,
     color: '#BBB',
+  },
+  agentTools: {
+    fontSize: 11,
+    color: '#666',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  agentVision: {
+    fontSize: 11,
+    color: '#000',
+    backgroundColor: '#E0E0E0',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -456,5 +547,50 @@ const styles = StyleSheet.create({
   },
   providerBtnTextActive: {
     color: '#FFF',
+  },
+  // Tools
+  toolsContainer: {
+    gap: 8,
+  },
+  toolChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#FAFAFA',
+  },
+  toolChipActive: {
+    borderColor: '#000',
+    backgroundColor: '#F0F0F0',
+  },
+  toolChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  toolChipTextActive: {
+    color: '#000',
+  },
+  toolChipDesc: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
+  },
+  // Vision
+  visionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  visionInfo: {
+    flex: 1,
+  },
+  visionHint: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
   },
 });

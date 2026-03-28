@@ -24,3 +24,5 @@ Thumbs.db
 *.ipa
 .vercel
 .env*.local
+blueprint.docx
+blueprint_notes.txt

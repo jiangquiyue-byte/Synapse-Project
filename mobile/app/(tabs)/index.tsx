@@ -10,7 +10,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useAppStore, Message, DiscussionMode } from '../../stores/useAppStore';
 import { SSEClient } from '../../services/sseClient';
 import { api } from '../../services/api';
@@ -59,19 +63,113 @@ export default function ChatScreen() {
   } = useAppStore();
 
   const [inputText, setInputText] = useState('');
+  const [selectedImage, setSelectedImage] = useState<{
+    uri: string;
+    base64: string;
+  } | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const sseClient = useRef(new SSEClient());
 
-  // Check if backend is reachable (either explicit URL or default fallback)
+  // Check if backend is reachable
   const hasBackend = () => {
     return !!(backendUrl || api.getChatStreamUrl());
   };
 
+  // ─── Document Upload ───
+  const handleDocumentUpload = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/plain',
+          'text/markdown',
+        ],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      const file = result.assets[0];
+      setUploadingDoc(true);
+
+      addMessage({
+        id: 'sys_upload_' + Date.now(),
+        role: 'system',
+        content: `正在上传文档: ${file.name}...`,
+        timestamp: new Date().toISOString(),
+      });
+
+      try {
+        const uploadResult = await api.uploadDocument(
+          { uri: file.uri, name: file.name, type: file.mimeType || 'application/octet-stream' },
+          currentSessionId
+        );
+
+        addMessage({
+          id: 'sys_upload_done_' + Date.now(),
+          role: 'system',
+          content: uploadResult.status === 'ok'
+            ? `文档上传成功: ${uploadResult.message}`
+            : `文档上传失败: ${uploadResult.message || '未知错误'}`,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (e: any) {
+        addMessage({
+          id: 'sys_upload_err_' + Date.now(),
+          role: 'system',
+          content: `文档上传失败: ${e.message}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (e: any) {
+      Alert.alert('错误', '选择文档失败: ' + e.message);
+    } finally {
+      setUploadingDoc(false);
+    }
+  }, [currentSessionId]);
+
+  // ─── Image Picker ───
+  const handleImagePick = useCallback(async () => {
+    try {
+      const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permResult.granted) {
+        Alert.alert('权限', '需要相册访问权限来选择图片');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        base64: true,
+        allowsEditing: false,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      const asset = result.assets[0];
+      if (asset.base64) {
+        setSelectedImage({ uri: asset.uri, base64: asset.base64 });
+      } else {
+        // Read file and convert to base64
+        const b64 = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        setSelectedImage({ uri: asset.uri, base64: b64 });
+      }
+    } catch (e: any) {
+      Alert.alert('错误', '选择图片失败: ' + e.message);
+    }
+  }, []);
+
+  const clearSelectedImage = () => setSelectedImage(null);
+
+  // ─── Send Message ───
   const sendMessage = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isLoading) return;
 
-    // Use api.getChatStreamUrl() which already has DEFAULT_BACKEND_URL fallback
     if (!hasBackend()) {
       addMessage({
         id: 'sys_' + Date.now(),
@@ -94,14 +192,14 @@ export default function ChatScreen() {
     const userMsg: Message = {
       id: 'user_' + Date.now(),
       role: 'user',
-      content: text,
+      content: selectedImage ? `[图片已附加] ${text}` : text,
       timestamp: new Date().toISOString(),
     };
     addMessage(userMsg);
     setInputText('');
     setLoading(true);
 
-    // Parse @mention - supports @name anywhere in the message
+    // Parse @mention
     let targetAgentId: string | null = null;
     let mode = discussionMode;
     const atMatch = text.match(/@(\S+)/);
@@ -113,6 +211,9 @@ export default function ChatScreen() {
       }
     }
 
+    const imageBase64 = selectedImage?.base64 || null;
+    clearSelectedImage();
+
     try {
       await sseClient.current.connect(
         api.getChatStreamUrl(),
@@ -123,10 +224,10 @@ export default function ChatScreen() {
           mode: mode,
           target_agent_id: targetAgentId,
           max_debate_rounds: maxDebateRounds,
+          image_base64: imageBase64,
         },
         (event, data) => {
           if (event === 'agent_message' && data) {
-            const isSynthesizer = data.role === 'synthesizer';
             addMessage({
               id: data.id || 'msg_' + Date.now() + Math.random(),
               role: data.role || 'agent',
@@ -168,7 +269,7 @@ export default function ChatScreen() {
         timestamp: new Date().toISOString(),
       });
     }
-  }, [inputText, isLoading, agents, backendUrl, discussionMode, currentSessionId]);
+  }, [inputText, isLoading, agents, backendUrl, discussionMode, currentSessionId, selectedImage]);
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === 'user';
@@ -243,7 +344,7 @@ export default function ChatScreen() {
     );
   };
 
-  // Mode description for current mode
+  // Mode description
   const getModeHint = (): string => {
     switch (discussionMode) {
       case 'debate':
@@ -263,7 +364,7 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={90}
     >
-      {/* Mode selector bar with synapse icons */}
+      {/* Mode selector bar */}
       <View style={styles.modeBar}>
         {(['sequential', 'debate', 'vote', 'single'] as DiscussionMode[]).map(
           (mode) => (
@@ -337,8 +438,42 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {/* Input bar with synapse send icon */}
+      {/* Selected image preview */}
+      {selectedImage && (
+        <View style={styles.imagePreviewBar}>
+          <Image
+            source={{ uri: selectedImage.uri }}
+            style={styles.imagePreviewThumb}
+          />
+          <Text style={styles.imagePreviewText}>图片已选择</Text>
+          <TouchableOpacity onPress={clearSelectedImage}>
+            <Text style={styles.imagePreviewRemove}>×</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Input bar with attachment buttons */}
       <View style={styles.inputBar}>
+        {/* Document upload button */}
+        <TouchableOpacity
+          style={styles.attachBtn}
+          onPress={handleDocumentUpload}
+          disabled={uploadingDoc || isLoading}
+        >
+          <Text style={styles.attachBtnText}>
+            {uploadingDoc ? '...' : '📎'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Image picker button */}
+        <TouchableOpacity
+          style={styles.attachBtn}
+          onPress={handleImagePick}
+          disabled={isLoading}
+        >
+          <Text style={styles.attachBtnText}>🖼</Text>
+        </TouchableOpacity>
+
         <TextInput
           style={styles.input}
           value={inputText}
@@ -555,14 +690,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
   },
+  // Image preview bar
+  imagePreviewBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: '#F5F5F5',
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E5E5',
+    gap: 8,
+  },
+  imagePreviewThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+  },
+  imagePreviewText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#666',
+  },
+  imagePreviewRemove: {
+    fontSize: 20,
+    color: '#999',
+    paddingHorizontal: 8,
+  },
+  // Input bar
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingVertical: 10,
     borderTopWidth: 0.5,
     borderTopColor: '#E5E5E5',
     backgroundColor: '#FFFFFF',
+  },
+  attachBtn: {
+    width: 36,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attachBtnText: {
+    fontSize: 20,
   },
   input: {
     flex: 1,
@@ -574,6 +745,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 15,
     color: '#000',
+    marginHorizontal: 4,
   },
   sendBtn: {
     width: 46,
@@ -582,7 +754,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 4,
   },
   sendBtnDisabled: {
     backgroundColor: '#CCC',
