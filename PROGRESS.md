@@ -21,6 +21,7 @@
 4. **JSON Parse Error 修复**：前端 `safeJson()` 包装器 + 后端全局异常处理，确保任何情况下都返回合法 JSON。
 5. **Expo Go 蓝屏修复**：删除冲突的 `pnpm-lock.yaml`（锁定 SDK 55 依赖）+ 移除 `tintColor` 样式属性 + 清理 Metro 缓存。
 6. **Serverless 聊天失败修复**：新增 `inline_agents` 机制，前端每次聊天请求直接携带完整 Agent 配置（含 API Key），彻底绕过 Vercel Serverless 无状态内存限制。
+7. **No response body 修复**：React Native 的 `fetch` 不支持 `response.body`（ReadableStream），导致 SSE 流式读取失败。新增 `/api/chat/send` 非流式 JSON 端点，前端改用标准 fetch + JSON 方式通信，彻底解决兼容性问题。
 
 ---
 
