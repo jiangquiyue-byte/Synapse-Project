@@ -11,7 +11,7 @@ function TabIcon({ name, focused }: { name: keyof typeof ICONS; focused: boolean
   return (
     <Image
       source={ICONS[name]}
-      style={[styles.icon, { opacity: focused ? 1 : 0.35 }]}
+      style={[styles.icon, { opacity: focused ? 1 : 0.3, tintColor: '#FFFFFF' }]}
       resizeMode="contain"
     />
   );
@@ -22,22 +22,22 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E5E5E5',
+          backgroundColor: '#000000',
+          borderTopColor: '#262626',
           borderTopWidth: 0.5,
           height: 70,
           paddingBottom: 8,
           paddingTop: 6,
         },
-        tabBarActiveTintColor: '#000000',
-        tabBarInactiveTintColor: '#999999',
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: '#666666',
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
           letterSpacing: 0.5,
         },
-        headerStyle: { backgroundColor: '#FFFFFF' },
-        headerTintColor: '#000000',
+        headerStyle: { backgroundColor: '#000000' },
+        headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700', fontSize: 18 },
         headerShadowVisible: false,
       }}

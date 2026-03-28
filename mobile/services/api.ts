@@ -6,16 +6,31 @@ const getBaseUrl = () => {
   return useAppStore.getState().backendUrl || DEFAULT_BACKEND_URL;
 };
 
+/**
+ * Safe JSON parser - handles non-JSON responses gracefully.
+ */
+async function safeJson(res: Response): Promise<any> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      status: 'error',
+      message: res.ok ? text : `HTTP ${res.status}: ${text.slice(0, 200)}`,
+    };
+  }
+}
+
 export const api = {
   health: async () => {
     const res = await fetch(`${getBaseUrl()}/health`);
-    return res.json();
+    return safeJson(res);
   },
 
   // Agents
   listAgents: async () => {
     const res = await fetch(`${getBaseUrl()}/api/agents/`);
-    return res.json();
+    return safeJson(res);
   },
 
   createAgent: async (agent: any) => {
@@ -24,20 +39,20 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(agent),
     });
-    return res.json();
+    return safeJson(res);
   },
 
   deleteAgent: async (id: string) => {
     const res = await fetch(`${getBaseUrl()}/api/agents/${id}`, {
       method: 'DELETE',
     });
-    return res.json();
+    return safeJson(res);
   },
 
   // Prompt templates
   listPrompts: async () => {
     const res = await fetch(`${getBaseUrl()}/api/workflows/prompts`);
-    return res.json();
+    return safeJson(res);
   },
 
   // Upload
@@ -53,7 +68,7 @@ export const api = {
       method: 'POST',
       body: formData,
     });
-    return res.json();
+    return safeJson(res);
   },
 
   queryDocuments: async (sessionId: string, query: string) => {
@@ -62,12 +77,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, query }),
     });
-    return res.json();
+    return safeJson(res);
   },
 
   listDocuments: async (sessionId: string) => {
     const res = await fetch(`${getBaseUrl()}/api/upload/documents/${sessionId}`);
-    return res.json();
+    return safeJson(res);
   },
 
   // Chat stream URL
