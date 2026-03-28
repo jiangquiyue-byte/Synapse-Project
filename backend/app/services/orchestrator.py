@@ -2,6 +2,7 @@
 LangGraph multi-mode orchestrator for Synapse.
 Supports: sequential, debate, vote, single modes.
 Real LLM API integration with SSE streaming.
+Integrates web_search and rag_query tools for M4.
 """
 import operator
 import os
@@ -24,6 +25,28 @@ class ConversationState(TypedDict):
     max_debate_rounds: int
     should_continue_debate: bool
     image_data: str
+
+
+def _get_tools_for_agent(cfg: dict) -> list:
+    """Build the tool list for an agent based on its config."""
+    tools = []
+    agent_tools = cfg.get("tools", [])
+
+    if "web_search" in agent_tools:
+        try:
+            from app.services.web_search import web_search_tool
+            tools.append(web_search_tool)
+        except Exception:
+            pass
+
+    if "rag_query" in agent_tools:
+        try:
+            from app.services.rag_pipeline import rag_query_tool
+            tools.append(rag_query_tool)
+        except Exception:
+            pass
+
+    return tools
 
 
 def make_agent_node(cfg: dict):
@@ -59,8 +82,21 @@ def make_agent_node(cfg: dict):
                 "在回答末尾，用一句话总结你的核心立场。"
             )
 
+        # Build tool instruction
+        agent_tools = cfg.get("tools", [])
+        tool_instruction = ""
+        if agent_tools:
+            tool_names = []
+            if "web_search" in agent_tools:
+                tool_names.append("联网搜索")
+            if "rag_query" in agent_tools:
+                tool_names.append("文档检索")
+            if tool_names:
+                tool_instruction = f"\n你拥有以下工具能力：{'、'.join(tool_names)}。如果需要，可以在回答中引用搜索结果或文档内容。"
+
         system_msg = f"""你是「{cfg['name']}」。{cfg['persona']}
 {mode_instruction}
+{tool_instruction}
 
 之前的发言记录：
 {prev_msgs if prev_msgs else '(尚无)'}
@@ -87,12 +123,58 @@ def make_agent_node(cfg: dict):
                 ]}
             ]
 
-        # Real LLM API call
+        # Prepare tools and handle tool calls
+        tools = _get_tools_for_agent(cfg)
+        content = ""
+
         try:
-            response = await llm.ainvoke(llm_messages)
-            content = response.content if hasattr(response, 'content') else str(response)
+            if tools:
+                # Bind tools to LLM and handle potential tool calls
+                llm_with_tools = llm.bind_tools(tools)
+                response = await llm_with_tools.ainvoke(llm_messages)
+
+                # Check if the LLM wants to call tools
+                if hasattr(response, 'tool_calls') and response.tool_calls:
+                    tool_results = []
+                    for tool_call in response.tool_calls:
+                        tool_name = tool_call.get("name", "")
+                        tool_args = tool_call.get("args", {})
+
+                        # Execute the tool
+                        try:
+                            if tool_name == "web_search_tool":
+                                from app.services.web_search import web_search_tool
+                                result = web_search_tool.invoke(tool_args)
+                                tool_results.append(f"[联网搜索结果]\n{result}")
+                            elif tool_name == "rag_query_tool":
+                                from app.services.rag_pipeline import rag_query_tool
+                                result = await rag_query_tool.ainvoke(tool_args)
+                                tool_results.append(f"[文档检索结果]\n{result}")
+                        except Exception as te:
+                            tool_results.append(f"[工具调用失败: {str(te)}]")
+
+                    # Re-invoke LLM with tool results
+                    tool_context = "\n\n".join(tool_results)
+                    enhanced_messages = [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": f"{state['user_query']}\n\n以下是工具返回的参考信息：\n{tool_context}"}
+                    ]
+                    final_response = await llm.ainvoke(enhanced_messages)
+                    content = final_response.content if hasattr(final_response, 'content') else str(final_response)
+                else:
+                    content = response.content if hasattr(response, 'content') else str(response)
+            else:
+                # No tools, direct invocation
+                response = await llm.ainvoke(llm_messages)
+                content = response.content if hasattr(response, 'content') else str(response)
+
         except Exception as e:
-            content = f"[LLM 调用失败: {str(e)}]"
+            # If tool binding fails, fall back to direct invocation
+            try:
+                response = await llm.ainvoke(llm_messages)
+                content = response.content if hasattr(response, 'content') else str(response)
+            except Exception as e2:
+                content = f"[LLM 调用失败: {str(e2)}]"
 
         tokens = count_tokens(content, cfg["model"])
         cost = estimate_cost(tokens, cfg["model"], cfg["provider"])
