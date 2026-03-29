@@ -55,6 +55,25 @@ def _tokenize_for_search(text: str) -> list[str]:
     return unique_tokens
 
 
+def _json_safe(value):
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if hasattr(value, "_mapping"):
+        return {str(key): _json_safe(item) for key, item in value._mapping.items()}
+    if hasattr(value, "tolist"):
+        try:
+            return _json_safe(value.tolist())
+        except Exception:
+            pass
+    return str(value)
+
+
 def _serialize_embedding(value) -> Optional[list[float]]:
     if value is None:
         return None
@@ -76,14 +95,14 @@ def _serialize_embedding(value) -> Optional[list[float]]:
 
 def _memory_to_dict(record: MemoryRecord, score: Optional[float] = None) -> dict:
     return {
-        "id": record.id,
-        "session_id": record.session_id,
-        "source_message_id": record.source_message_id,
-        "content": record.content,
-        "metadata_json": record.metadata_json or {},
-        "embedding": _serialize_embedding(record.embedding),
+        "id": _json_safe(record.id),
+        "session_id": _json_safe(record.session_id),
+        "source_message_id": _json_safe(record.source_message_id),
+        "content": _json_safe(record.content),
+        "metadata_json": _json_safe(record.metadata_json or {}),
+        "embedding": _json_safe(_serialize_embedding(record.embedding)),
         "created_at": record.created_at.isoformat() if record.created_at else "",
-        "score": score,
+        "score": _json_safe(score),
     }
 
 
