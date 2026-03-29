@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, FlatList, Image,
+  View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, ScrollView, Alert, Modal, Switch, Platform,
 } from 'react-native';
 import { useAppStore, Agent } from '../../stores/useAppStore';
 import { api } from '../../services/api';
-
-const EMPTY_ICON = require('../../assets/icons/empty-agents.png');
+import { EmptyAgentsIcon, ICON_TONES } from '../../components/SynapseIcons';
 
 const PROVIDERS = [
   { label: 'OpenAI', value: 'openai' },
@@ -116,7 +115,9 @@ export default function AgentsScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Image source={EMPTY_ICON} style={styles.emptyIcon} resizeMode="contain" />
+            <View style={styles.emptyIcon}>
+              <EmptyAgentsIcon size={80} color={ICON_TONES.primary} opacity={0.26} strokeWidth={1.1} />
+            </View>
             <Text style={styles.emptyText}>暂无成员</Text>
             <Text style={styles.emptyHint}>添加 AI Agent 开始协作</Text>
           </View>

@@ -1,12 +1,13 @@
-"""File upload router for RAG pipeline."""
 import traceback
-from fastapi import APIRouter, UploadFile, File, Form
+
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
+
 from app.services.rag_pipeline import (
+    clear_session_documents,
+    get_session_documents,
     ingest_document,
     retrieve_rag_context,
-    get_session_documents,
-    clear_session_documents,
 )
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
@@ -69,7 +70,7 @@ async def query_documents(session_id: str = "default", query: str = "", k: int =
 async def list_documents(session_id: str):
     """List all uploaded documents for a session."""
     try:
-        docs = get_session_documents(session_id)
+        docs = await get_session_documents(session_id)
         return {"status": "ok", "documents": docs}
     except Exception as e:
         traceback.print_exc()
@@ -83,7 +84,7 @@ async def list_documents(session_id: str):
 async def delete_documents(session_id: str):
     """Clear all documents for a session."""
     try:
-        success = clear_session_documents(session_id)
+        success = await clear_session_documents(session_id)
         return {
             "status": "ok" if success else "not_found",
             "message": "文档已清除" if success else "未找到该会话的文档",

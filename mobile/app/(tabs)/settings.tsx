@@ -7,7 +7,14 @@ import { useAppStore } from '../../stores/useAppStore';
 import { api } from '../../services/api';
 
 export default function SettingsScreen() {
-  const { backendUrl, setBackendUrl, totalCostUsd, agents } = useAppStore();
+  const {
+    backendUrl,
+    setBackendUrl,
+    totalCostUsd,
+    agents,
+    tavilySearchEnabled,
+    setTavilySearchEnabled,
+  } = useAppStore();
   const [urlInput, setUrlInput] = useState(backendUrl);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
 
@@ -52,6 +59,23 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* Search */}
+      <Text style={styles.sectionTitle}>联网搜索</Text>
+      <View style={styles.card}>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleTitle}>Tavily 搜索</Text>
+            <Text style={styles.toggleDesc}>启用后，聊天链路可按配置接入联网搜索能力；生产环境需同时配置 TAVILY_API_KEY。</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.togglePill, tavilySearchEnabled && styles.togglePillActive]}
+            onPress={() => void setTavilySearchEnabled(!tavilySearchEnabled)}
+          >
+            <View style={[styles.toggleKnob, tavilySearchEnabled && styles.toggleKnobActive]} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Stats */}
       <Text style={styles.sectionTitle}>使用统计</Text>
       <View style={styles.card}>
@@ -63,6 +87,11 @@ export default function SettingsScreen() {
         <View style={styles.costRow}>
           <Text style={styles.costLabel}>成员数量</Text>
           <Text style={styles.costValue}>{agents.length}</Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.costRow}>
+          <Text style={styles.costLabel}>联网搜索</Text>
+          <Text style={styles.costValue}>{tavilySearchEnabled ? 'ON' : 'OFF'}</Text>
         </View>
       </View>
 
@@ -94,6 +123,34 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, color: '#666' },
   testBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#000000', borderRadius: 20 },
   testBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  toggleCopy: { flex: 1, paddingRight: 8 },
+  toggleTitle: { fontSize: 13, fontWeight: '700', color: '#222' },
+  toggleDesc: { fontSize: 12, color: '#777', lineHeight: 18, marginTop: 4 },
+  togglePill: {
+    width: 52,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 0.9,
+    borderColor: '#D5D5D5',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  togglePillActive: {
+    backgroundColor: '#111111',
+    borderColor: '#111111',
+  },
+  toggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#111111',
+  },
+  toggleKnobActive: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#FFFFFF',
+  },
   costRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
   costLabel: { fontSize: 13, color: '#666' },
   costValue: { fontSize: 17, fontWeight: '700', color: '#000000', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },

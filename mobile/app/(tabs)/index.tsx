@@ -9,8 +9,8 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Pressable,
 } from 'react-native';
@@ -20,8 +20,18 @@ import * as FileSystem from 'expo-file-system';
 import { useAppStore, Message, DiscussionMode } from '../../stores/useAppStore';
 import { SSEClient } from '../../services/sseClient';
 import { api } from '../../services/api';
-
-const SEND_ICON = require('../../assets/icons/send-pulse.png');
+import SynapsePulse from '../../components/SynapsePulse';
+import {
+  AddPlusIcon,
+  DebateModeIcon,
+  ICON_TONES,
+  ExportDialogIcon,
+  SendPulseIcon,
+  SequentialModeIcon,
+  SingleModeIcon,
+  SynapseMarkIcon,
+  VoteModeIcon,
+} from '../../components/SynapseIcons';
 
 const MODE_LABELS: Record<DiscussionMode, string> = {
   sequential: '顺序',
@@ -30,17 +40,43 @@ const MODE_LABELS: Record<DiscussionMode, string> = {
   single: '指定',
 };
 
+function ModeIcon({ mode, color = ICON_TONES.primary }: { mode: DiscussionMode; color?: string }) {
+  switch (mode) {
+    case 'debate':
+      return <DebateModeIcon size={16} color={color} strokeWidth={1} />;
+    case 'vote':
+      return <VoteModeIcon size={16} color={color} strokeWidth={1} />;
+    case 'single':
+      return <SingleModeIcon size={16} color={color} strokeWidth={1} />;
+    case 'sequential':
+    default:
+      return <SequentialModeIcon size={16} color={color} strokeWidth={1} />;
+  }
+}
+
 export default function ChatScreen() {
   const {
-    messages, agents, addMessage, isLoading, setLoading,
-    backendUrl, discussionMode, setDiscussionMode,
-    currentSessionId, maxDebateRounds, addCost,
+    messages,
+    agents,
+    addMessage,
+    upsertMessage,
+    patchMessage,
+    isLoading,
+    setLoading,
+    backendUrl,
+    discussionMode,
+    setDiscussionMode,
+    currentSessionId,
+    maxDebateRounds,
+    addCost,
+    tavilySearchEnabled,
   } = useAppStore();
 
   const [inputText, setInputText] = useState('');
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64: string } | null>(null);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const sseClient = useRef(new SSEClient());
 
@@ -89,13 +125,39 @@ export default function ChatScreen() {
       if (asset.base64) {
         setSelectedImage({ uri: asset.uri, base64: asset.base64 });
       } else {
-        const b64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+        const b64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: 'base64' });
         setSelectedImage({ uri: asset.uri, base64: b64 });
       }
     } catch (e: any) {
       Alert.alert('错误', e.message);
     }
   }, []);
+
+  const handleExport = useCallback(async (format: 'markdown' | 'pdf' | 'json') => {
+    setShowExportMenu(false);
+    if (!currentSessionId) {
+      Alert.alert('提示', '当前没有可导出的会话');
+      return;
+    }
+
+    const url =
+      format === 'pdf'
+        ? api.exportPdf(currentSessionId)
+        : format === 'json'
+          ? api.exportJson(currentSessionId)
+          : api.exportMarkdown(currentSessionId);
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert('导出失败', '当前设备无法打开导出链接');
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (error: any) {
+      Alert.alert('导出失败', error?.message || '无法打开导出链接');
+    }
+  }, [currentSessionId]);
 
   // ─── Send Message ───
   const sendMessage = useCallback(async () => {
@@ -137,17 +199,50 @@ export default function ChatScreen() {
             model: a.model,
             api_key: a.apiKey,
             sequence_order: a.sequenceOrder,
-            tools: a.tools,
+            tools: tavilySearchEnabled
+              ? Array.from(new Set([...(a.tools || []), 'web_search']))
+              : (a.tools || []).filter((tool) => tool !== 'web_search'),
             temperature: a.temperature,
             supports_vision: a.supportsVision,
             custom_base_url: a.customBaseUrl || '',
           })),
         },
         (event, data) => {
-          if (event === 'agent_message' && data) {
-            addMessage({ id: data.id || 'msg_' + Date.now() + Math.random(), role: data.role || 'agent', agentName: data.agent_name, content: data.content, timestamp: data.timestamp || new Date().toISOString(), tokenCount: data.token_count, costUsd: data.cost_usd });
-          } else if (event === 'cost_summary' && data) { addCost(data.total_cost_usd || 0); }
-          else if (event === 'error' && data) { addMessage({ id: 'err_' + Date.now(), role: 'system', content: `错误: ${data.error || data.message || '未知'}`, timestamp: new Date().toISOString() }); }
+          if (event === 'agent_start' && data) {
+            const messageId = data.message_id || 'msg_' + Date.now() + Math.random();
+            upsertMessage({
+              id: messageId,
+              role: data.agent_id || 'agent',
+              agentName: data.agent_name,
+              content: '',
+              timestamp: new Date().toISOString(),
+              isStreaming: true,
+            });
+          } else if (event === 'token' && data) {
+            const messageId = data.message_id;
+            if (!messageId) return;
+            patchMessage(messageId, {
+              role: data.agent_id || 'agent',
+              agentName: data.agent_name,
+              content: data.content || '',
+              isStreaming: true,
+            });
+          } else if (event === 'agent_message' && data) {
+            upsertMessage({
+              id: data.id || 'msg_' + Date.now() + Math.random(),
+              role: data.role || 'agent',
+              agentName: data.agent_name,
+              content: data.content,
+              timestamp: data.timestamp || new Date().toISOString(),
+              tokenCount: data.token_count,
+              costUsd: data.cost_usd,
+              isStreaming: false,
+            });
+          } else if (event === 'cost_summary' && data) {
+            addCost(data.total_cost_usd || 0);
+          } else if (event === 'error' && data) {
+            addMessage({ id: 'err_' + Date.now(), role: 'system', content: `错误: ${data.error || data.message || '未知'}`, timestamp: new Date().toISOString() });
+          }
         },
         (err) => { addMessage({ id: 'err_' + Date.now(), role: 'system', content: `连接错误: ${err.message}`, timestamp: new Date().toISOString() }); },
         () => { setLoading(false); }
@@ -156,7 +251,21 @@ export default function ChatScreen() {
       setLoading(false);
       addMessage({ id: 'err_' + Date.now(), role: 'system', content: `发送失败: ${e.message}`, timestamp: new Date().toISOString() });
     }
-  }, [inputText, isLoading, agents, backendUrl, discussionMode, currentSessionId, selectedImage]);
+  }, [
+    inputText,
+    isLoading,
+    agents,
+    backendUrl,
+    discussionMode,
+    currentSessionId,
+    selectedImage,
+    upsertMessage,
+    patchMessage,
+    addMessage,
+    addCost,
+    setLoading,
+    tavilySearchEnabled,
+  ]);
 
   // ─── Render ───
   const renderMessage = ({ item }: { item: Message }) => {
@@ -208,6 +317,17 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
+      <View style={styles.topActionBar}>
+        <View style={styles.topActionMeta}>
+          <Text style={styles.topActionTitle}>当前会话</Text>
+          <Text style={styles.topActionSubtitle}>{tavilySearchEnabled ? '联网搜索已启用' : '本地对话模式'}</Text>
+        </View>
+        <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExportMenu(true)}>
+          <ExportDialogIcon size={15} color={ICON_TONES.primary} strokeWidth={1.05} />
+          <Text style={styles.exportBtnText}>导出</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Messages */}
       <FlatList
         ref={flatListRef}
@@ -218,7 +338,9 @@ export default function ChatScreen() {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Image source={require('../../assets/icons/tab-chat.png')} style={styles.emptyLogo} resizeMode="contain" />
+            <View style={styles.emptyLogo}>
+              <SynapseMarkIcon size={80} color={ICON_TONES.primary} opacity={0.26} strokeWidth={1.15} />
+            </View>
             <Text style={styles.emptyTitle}>Synapse</Text>
             <Text style={styles.emptySubtitle}>连接智慧，协同思考</Text>
             <Text style={styles.emptyHint}>{agents.length === 0 ? '前往「成员」添加 AI Agent' : '输入问题，开始多智能体群聊'}</Text>
@@ -229,7 +351,7 @@ export default function ChatScreen() {
       {/* Loading */}
       {isLoading && (
         <View style={styles.loadingBar}>
-          <ActivityIndicator size="small" color="#000000" />
+          <SynapsePulse size={20} strokeWidth={1.35} />
           <Text style={styles.loadingText}>思考中...</Text>
         </View>
       )}
@@ -247,15 +369,18 @@ export default function ChatScreen() {
 
       {/* Input bar */}
       <View style={styles.inputBar}>
-        {/* Plus button */}
-        <TouchableOpacity style={styles.plusBtn} onPress={() => setShowPlusMenu(true)} disabled={uploadingDoc || isLoading}>
-          <Text style={styles.plusText}>{uploadingDoc ? '...' : '+'}</Text>
-        </TouchableOpacity>
+        <View style={styles.leftControls}>
+          <TouchableOpacity style={styles.plusBtn} onPress={() => setShowPlusMenu(true)} disabled={uploadingDoc || isLoading}>
+            <AddPlusIcon size={18} color={uploadingDoc ? ICON_TONES.subtle : ICON_TONES.primary} strokeWidth={1} opacity={uploadingDoc ? 0.82 : 1} />
+          </TouchableOpacity>
 
-        {/* Mode pill */}
-        <TouchableOpacity style={styles.modePill} onPress={cycleMode}>
-          <Text style={styles.modePillText}>{MODE_LABELS[discussionMode]}</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.modePill} onPress={cycleMode}>
+            <View style={styles.modeIconWrap}>
+              <ModeIcon mode={discussionMode} color={ICON_TONES.primary} />
+            </View>
+            <Text style={styles.modePillText}>{MODE_LABELS[discussionMode]}</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Text input */}
         <TextInput
@@ -271,9 +396,30 @@ export default function ChatScreen() {
 
         {/* Send */}
         <TouchableOpacity style={[styles.sendBtn, isLoading && styles.sendBtnDisabled]} onPress={sendMessage} disabled={isLoading}>
-          <Image source={SEND_ICON} style={styles.sendIcon} resizeMode="contain" />
+          <SendPulseIcon size={16} color={ICON_TONES.inverse} strokeWidth={1.35} />
         </TouchableOpacity>
       </View>
+
+      <Modal visible={showExportMenu} transparent animationType="fade">
+        <Pressable style={styles.menuOverlay} onPress={() => setShowExportMenu(false)}>
+          <View style={styles.menuContainer}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => void handleExport('markdown')}>
+              <Text style={styles.menuIcon}>MD</Text>
+              <Text style={styles.menuLabel}>导出 Markdown</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => void handleExport('pdf')}>
+              <Text style={styles.menuIcon}>PDF</Text>
+              <Text style={styles.menuLabel}>导出 PDF</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => void handleExport('json')}>
+              <Text style={styles.menuIcon}>JSON</Text>
+              <Text style={styles.menuLabel}>导出 JSON</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Plus menu modal */}
       <Modal visible={showPlusMenu} transparent animationType="fade">
@@ -298,6 +444,46 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   messageList: { paddingHorizontal: 16, paddingVertical: 12, flexGrow: 1 },
+  topActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 12,
+  },
+  topActionMeta: {
+    flex: 1,
+  },
+  topActionTitle: {
+    fontSize: 11,
+    color: '#8A8A8A',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  topActionSubtitle: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#444444',
+  },
+  exportBtn: {
+    minWidth: 82,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 0.9,
+    borderColor: '#D7D7D7',
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  exportBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
 
   // Messages
   msgRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'flex-end' },
@@ -326,7 +512,7 @@ const styles = StyleSheet.create({
   synthText: { fontSize: 13, lineHeight: 20, color: '#333' },
 
   // Loading
-  loadingBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 8 },
+  loadingBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 10 },
   loadingText: { fontSize: 12, color: '#999' },
 
   // Image preview
@@ -337,12 +523,13 @@ const styles = StyleSheet.create({
 
   // Input bar
   inputBar: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#FFFFFF', borderTopWidth: 0.5, borderTopColor: '#E5E5E5' },
-  plusBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#DDD', justifyContent: 'center', alignItems: 'center', marginRight: 6 },
-  plusText: { fontSize: 18, color: '#666', fontWeight: '300' },
-  modePill: { height: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#DDD', justifyContent: 'center', alignItems: 'center', marginRight: 6, backgroundColor: '#F5F5F5' },
+  leftControls: { flexDirection: 'row', alignItems: 'center', marginRight: 8, gap: 6 },
+  plusBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 0.9, borderColor: '#D8D8D8', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
+  modePill: { height: 36, paddingHorizontal: 11, borderRadius: 18, borderWidth: 0.9, borderColor: '#D8D8D8', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F7F7F7', flexDirection: 'row', gap: 6 },
+  modeIconWrap: { width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
   modePillText: { fontSize: 11, fontWeight: '600', color: '#333' },
-  input: { flex: 1, minHeight: 32, maxHeight: 100, backgroundColor: '#F5F5F5', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, color: '#000000', marginRight: 6 },
-  sendBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  input: { flex: 1, minHeight: 36, maxHeight: 100, backgroundColor: '#F5F5F5', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, color: '#000000', marginRight: 8 },
+  sendBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { backgroundColor: '#CCC' },
   sendIcon: { width: 16, height: 16 },
 

@@ -4,14 +4,14 @@
 
 ## [Current Status]
 
-**M4 智能增强 ✅ + UI 重构 ✅ + 后端兼容性加固 ✅ + 聊天修复 ✅ + 连通性修复 ✅ 全部完成。App 已在手机端正常运行并可对话。**
+**M5 生产化升级已完成主要落地：会话/Agent/用户配置持久化 ✅、跨会话记忆 ✅、Token 级流式输出 ✅、五页面扩展 ✅。当前 App 已具备生产化骨架，但 PostgreSQL/pgvector 与 Tavily 仍需在正式环境补齐环境变量后完成最终上线验证。**
 
 ### 核心交棒信息
 
 * **当前后端 URL**：`https://synapse-project-seven.vercel.app`
 * **环境说明**：当前前端项目完全依赖 **Expo SDK 54**（React 19.1.0, React Native 0.81.5），**不可降级**。
-* **M4 新增环境变量**：`TAVILY_API_KEY`（联网搜索功能需要）
-* **版本号**：v2.1.0
+* **M5 新增环境变量**：`DATABASE_URL`（PostgreSQL 连接）、`TAVILY_API_KEY`（联网搜索）、`EMBEDDING_MODEL`（向量检索建议显式配置）
+* **版本号**：v2.2.0
 * **UI 风格**：白底黑字简洁风格，全中文按钮和标签
 
 ### 已解决的坑
@@ -28,16 +28,20 @@
 
 ## [Next Plan] (待办清单)
 
-### 优先级 P0：Vercel 环境变量
-* 需要在 Vercel 添加环境变量 `TAVILY_API_KEY` 以启用联网搜索
+### 优先级 P0：生产环境变量补齐
+* 在部署平台配置 `DATABASE_URL`，并确保 PostgreSQL 已启用 `pgvector`
+* 配置 `TAVILY_API_KEY`，使联网搜索开关在生产环境真正生效
+* 校验 `OPENAI_BASE_URL` / `EMBEDDING_MODEL` 的 embedding 能力，避免记忆系统仅走关键词降级召回
 
-### 优先级 P1：启动 M5 里程碑
-* **持久化存储**：将内存存储迁移至 PostgreSQL + pgvector
-* **对话记忆**：跨会话上下文记忆
-* **工作流模板市场**：预置常用工作流模板
+### 优先级 P1：生产环境回归验证
+* **持久化验证**：确认会话、Agent、用户配置在 PostgreSQL 中真实落库
+* **记忆验证**：确认 pgvector/embedding 路径可用，而非仅关键词回退
+* **导出验证**：检查移动端导出入口与后端导出路由联通性
 
-### 优先级 P3：Token 级流式输出（可选优化）
-当前实现是 agent 级别的流式，可升级为 token 级别的流式（逐字输出）。
+### 优先级 P2：体验收尾
+* 优化记忆中心与工作流市场页面的交互细节
+* 复测五页面导航、Token 级打字机效果与 Tavily 搜索开关
+* 完成最新改动的提交、推送与部署回归
 
 ---
 
@@ -58,7 +62,9 @@
 |--------|------|------|-------------|
 | `OPENAI_API_KEY` | ✅ 是 | OpenAI API Key | ✅ 已设置 |
 | `OPENAI_BASE_URL` | ✅ 是 | OpenAI 兼容 API 的 Base URL | ✅ 已设置 |
+| `DATABASE_URL` | ✅ 是 (M5 新增) | PostgreSQL 连接串，生产环境需启用 pgvector | ⚠️ 待设置 |
 | `TAVILY_API_KEY` | ✅ 是 (M4 新增) | Tavily 搜索 API Key | ⚠️ 待设置 |
+| `EMBEDDING_MODEL` | 建议设置 | 记忆/文档向量化模型 | ⚠️ 建议显式设置 |
 | `ENCRYPTION_KEY` | 否（有默认值） | Fernet 加密密钥 | 使用默认值 |
 
 ---
@@ -95,6 +101,46 @@
 * `upload.py`：所有端点 try-catch 包装，返回标准 JSON 错误
 * `api.ts`：`safeJson()` 包装器，防止非 JSON 响应导致前端崩溃
 * `agents.tsx`：Agent 编辑页新增「自定义」供应商选项和 API 地址输入框
+
+### M5: 生产化升级 ✅（主要能力已落地，2026-03-29）
+
+#### 5.1 PostgreSQL + pgvector 持久化底座 ✅
+* `backend/app/models/database.py`：完成 SQLAlchemy 异步持久化重构
+  * 支持生产环境 `PostgreSQL + pgvector`
+  * 支持本地 `SQLite` 平滑降级开发
+  * 覆盖会话、消息、Agent、工作流、用户配置、文档、记忆记录等核心对象
+* `backend/app/routers/state.py`：新增状态同步路由
+  * 提供会话列表与用户配置持久化接口
+* `backend/app/main.py`：接入数据库初始化与释放逻辑
+* `backend/requirements.txt` / `backend/api/requirements.txt`：补齐 ORM、异步驱动与向量相关依赖
+
+#### 5.2 跨会话记忆系统 ✅
+* `backend/app/services/memory_service.py`：新增真实记忆服务层
+  * 支持记忆写入、跨会话检索、上下文拼装
+  * 支持中文 CJK 关键词切分与降级召回
+* `backend/app/routers/memory.py`：从占位接口升级为真实记忆 API
+* `backend/app/routers/chat.py`：聊天链路中接入记忆写入与检索注入
+
+#### 5.3 Token 级流式输出 ✅
+* `backend/app/services/orchestrator.py`：支持 Token 级逐字流式编排
+* `backend/app/routers/chat.py`：`/api/chat/stream` 已可输出 `event: token`
+* `mobile/services/sseClient.ts`：升级为 React Native 可用的流式解析器
+* `mobile/stores/useAppStore.ts`：新增消息增量 patch / upsert 能力
+* `mobile/app/(tabs)/index.tsx`：前端已可逐字更新消息内容并保留最终持久化结果
+
+#### 5.4 五页面扩展与交互补齐 ✅
+* 原三页面扩展为五页面：聊天 / 成员 / 记忆中心 / 工作流市场 / 设置
+* 新增 `mobile/app/(tabs)/memory.tsx`
+* 新增 `mobile/app/(tabs)/workflows.tsx`
+* 聊天页新增“导出对话”入口
+* 设置页新增 Tavily 联网搜索开关
+* 继续保持纯代码 SVG + 1px 黑线极简风格
+
+#### 5.5 当前已知上线前事项
+* 本地健康检查当前显示 `database=sqlite-dev`
+* 本地健康检查当前显示 `tavily_enabled=false`
+* embedding 接口当前返回 404，因此记忆系统本地主要依赖关键词/CJK 降级召回
+* 上述三项均需在生产环境补齐配置后再次回归验证
 
 ### M4: 智能增强 ✅ (2026-03-28)
 
@@ -134,10 +180,10 @@
 | 状态管理 | Zustand v4 |
 | 后端框架 | FastAPI (Python 3.11) |
 | 编排引擎 | LangGraph |
-| 通信协议 | SSE (Server-Sent Events) |
+| 通信协议 | SSE (Server-Sent Events)，已支持 Token 级逐字流式 |
 | AI 工具 | Tavily (搜索), PyMuPDF (PDF), python-docx (DOCX) |
 | LLM 供应商 | OpenAI, Gemini, Claude, Custom OpenAI (DeepSeek/Qwen) |
-| 数据存储 | 内存存储 (开发阶段) → PostgreSQL + pgvector (生产) |
+| 数据存储 | SQLite（本地降级） / PostgreSQL + pgvector（生产目标） |
 | 部署平台 | Vercel (Serverless Python) |
 | 版本控制 | GitHub (`jiangquiyue-byte/Synapse-Project`) |
 
@@ -161,4 +207,4 @@
 
 ---
 
-*最后更新: 2026-03-28 (全部修复完成，App 正常运行 + DeepSeek 对话验证通过)*
+*最后更新: 2026-03-29（M5 主要能力已落地：持久化、跨会话记忆、Token 流式、五页面扩展完成；待生产环境补齐 DATABASE_URL / TAVILY_API_KEY / embedding 能力后做最终上线验证）*

@@ -10,17 +10,16 @@ def create_llm(agent_config: dict):
 
     Tries to decrypt the API key first; if decryption fails,
     uses the key as-is (for dev/testing with plaintext keys).
-    Falls back to system env vars if no key provided.
 
     Providers:
       - openai: Official OpenAI API (uses system OPENAI_BASE_URL if set)
       - gemini: Google Gemini via langchain-google-genai
       - claude: Anthropic Claude via langchain-anthropic
       - custom_openai: Any OpenAI-compatible API (DeepSeek, Qwen, etc.)
-                       Requires custom_base_url in agent_config
+                       Uses the agent's own API key and custom_base_url
     """
     provider = agent_config["provider"]
-    api_key = agent_config.get("api_key_encrypted", "")
+    api_key = (agent_config.get("api_key_encrypted", "") or "").strip()
 
     # Try to decrypt; if it fails, use as-is (for dev/testing)
     if api_key and api_key != "***":
@@ -29,16 +28,20 @@ def create_llm(agent_config: dict):
         except Exception:
             pass  # Use as-is (plaintext key)
 
-    # Fallback to system env var if no key provided
+    api_key = (api_key or "").strip()
+
+    # Fallback to system env var only for first-party providers.
+    # custom_openai must prefer the agent-provided key, otherwise DeepSeek/Qwen
+    # requests may be accidentally sent with the system OpenAI key.
     if not api_key or api_key == "***":
-        if provider in ("openai", "custom_openai"):
+        if provider == "openai":
             api_key = os.environ.get("OPENAI_API_KEY", "")
         elif provider == "gemini":
             api_key = os.environ.get("GOOGLE_API_KEY", "")
         elif provider == "claude":
             api_key = os.environ.get("ANTHROPIC_API_KEY", "")
 
-    model = agent_config["model"]
+    model = (agent_config["model"] or "").strip()
     temp = agent_config.get("temperature", 0.7)
 
     if provider == "openai":
@@ -56,9 +59,16 @@ def create_llm(agent_config: dict):
 
     elif provider == "custom_openai":
         from langchain_openai import ChatOpenAI
-        custom_base_url = agent_config.get("custom_base_url", "")
+
+        custom_base_url = (agent_config.get("custom_base_url", "") or "").strip().rstrip("/")
+        if not custom_base_url and model.startswith("deepseek"):
+            custom_base_url = "https://api.deepseek.com/v1"
+
         if not custom_base_url:
-            raise ValueError("Custom OpenAI 供应商需要提供 API Base URL")
+            raise ValueError("自定义 OpenAI 兼容供应商需要提供 API Base URL")
+        if not api_key or api_key == "***":
+            raise ValueError("自定义 OpenAI 兼容供应商缺少可用的 API Key")
+
         kwargs = dict(
             model=model,
             api_key=api_key,

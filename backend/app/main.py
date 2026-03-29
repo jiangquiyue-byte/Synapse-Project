@@ -1,13 +1,28 @@
-"""Synapse Backend - FastAPI Main Entry."""
 import traceback
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from app.routers import chat, agents, upload, workflows, memory, export
-from app.core.config import get_settings
+from contextlib import asynccontextmanager
+import traceback
 
-app = FastAPI(title="Synapse Backend", version="2.0.0")
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.core.config import get_settings
+from app.models.database import close_db, init_db
+from app.routers import agents, chat, export, memory, state, upload, workflows
+
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await init_db()
+    try:
+        yield
+    finally:
+        await close_db()
+
+
+app = FastAPI(title="Synapse Backend", version="2.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,8 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ─── Global exception handlers to always return valid JSON ───
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -59,9 +72,16 @@ app.include_router(agents.router)
 app.include_router(upload.router)
 app.include_router(workflows.router)
 app.include_router(memory.router)
+app.include_router(state.router)
 app.include_router(export.router)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "alive", "app": "Synapse", "version": "2.1.0"}
+    return {
+        "status": "alive",
+        "app": "Synapse",
+        "version": "2.2.0",
+        "database": "postgresql+pgvector" if settings.DATABASE_URL.startswith(("postgres://", "postgresql://")) else "sqlite-dev",
+        "tavily_enabled": bool(settings.TAVILY_API_KEY),
+    }
