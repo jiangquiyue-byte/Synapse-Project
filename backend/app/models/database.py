@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, func, select, text
@@ -65,17 +66,36 @@ BUILTIN_PROMPTS = [
 settings = get_settings()
 
 
-def _normalize_database_url(raw_url: str) -> str:
+def _normalize_database_url(raw_url: str) -> tuple[str, dict[str, Any]]:
+    normalized = raw_url
     if raw_url.startswith("postgres://"):
-        return raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
-    if raw_url.startswith("postgresql://"):
-        return raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    if raw_url.startswith("sqlite://") and not raw_url.startswith("sqlite+aiosqlite://"):
-        return raw_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
-    return raw_url
+        normalized = raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif raw_url.startswith("postgresql://"):
+        normalized = raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif raw_url.startswith("sqlite://") and not raw_url.startswith("sqlite+aiosqlite://"):
+        normalized = raw_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+
+    connect_args: dict[str, Any] = {}
+    if normalized.startswith("postgresql+asyncpg://"):
+        parts = urlsplit(normalized)
+        filtered_query: list[tuple[str, str]] = []
+        for key, value in parse_qsl(parts.query, keep_blank_values=True):
+            lowered = key.lower()
+            if lowered == "channel_binding":
+                continue
+            if lowered == "sslmode":
+                if value.lower() != "disable":
+                    connect_args["ssl"] = "require"
+                continue
+            filtered_query.append((key, value))
+        normalized = urlunsplit(
+            (parts.scheme, parts.netloc, parts.path, urlencode(filtered_query), parts.fragment)
+        )
+
+    return normalized, connect_args
 
 
-DATABASE_URL = _normalize_database_url(settings.DATABASE_URL)
+DATABASE_URL, DATABASE_CONNECT_ARGS = _normalize_database_url(settings.DATABASE_URL)
 IS_POSTGRES = DATABASE_URL.startswith("postgresql+asyncpg://")
 EMBEDDING_COLUMN_TYPE = Vector(settings.PGVECTOR_DIMENSION) if IS_POSTGRES else JSON
 
@@ -215,6 +235,7 @@ engine = create_async_engine(
     echo=False,
     pool_pre_ping=IS_POSTGRES,
     poolclass=NullPool,
+    connect_args=DATABASE_CONNECT_ARGS if IS_POSTGRES else {},
 )
 session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 

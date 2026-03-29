@@ -1,4 +1,5 @@
 uvicorn[standard]
+fastapi
 sse-starlette
 pydantic-settings
 python-multipart

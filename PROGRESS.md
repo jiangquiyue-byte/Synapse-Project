@@ -1,47 +1,59 @@
-# Synapse 开发进度日志
-
 ---
 
 ## [Current Status]
 
-**M5 生产化升级已完成主要落地：会话/Agent/用户配置持久化 ✅、跨会话记忆 ✅、Token 级流式输出 ✅、五页面扩展 ✅。当前 App 已具备生产化骨架，但 PostgreSQL/pgvector 与 Tavily 仍需在正式环境补齐环境变量后完成最终上线验证。**
+**M5 生产化升级已完成最终生产激活：Vercel 生产环境现已接入 Neon PostgreSQL、pgvector 持久化、跨会话记忆、Token 级流式输出、Tavily 联网搜索、五页面导航以及三种导出链路。当前生产后端健康检查已稳定返回 `database=postgresql+pgvector` 与 `tavily_enabled=true`，说明生产骨架已经从“待激活”进入“可交付”状态。**
 
 ### 核心交棒信息
 
-* **当前后端 URL**：`https://synapse-project-seven.vercel.app`
-* **环境说明**：当前前端项目完全依赖 **Expo SDK 54**（React 19.1.0, React Native 0.81.5），**不可降级**。
-* **M5 新增环境变量**：`DATABASE_URL`（PostgreSQL 连接）、`TAVILY_API_KEY`（联网搜索）、`EMBEDDING_MODEL`（向量检索建议显式配置）
-* **版本号**：v2.2.0
-* **UI 风格**：白底黑字简洁风格，全中文按钮和标签
+| 项目 | 当前值 | 说明 |
+|------|--------|------|
+| 当前后端 URL | `https://synapse-project-seven.vercel.app` | 已绑定正式别名 |
+| 当前版本 | `v2.2.0` | 生产健康检查返回该版本 |
+| 数据库状态 | `postgresql+pgvector` | 生产 `/health` 已验证 |
+| 联网搜索状态 | `true` | 生产 `/health` 已验证 |
+| 前端结构 | 五页面 | 聊天 / 成员 / 记忆 / 工作流 / 设置 |
+| UI 风格 | 白底黑字极简风 | 全中文按钮与标签 |
 
-### 已解决的坑
-1. **SDK 51 到 54 的升级适配**：解决了 Expo SDK 54 对 React 19.1.0 和 React Native 0.81.5 的严格 peer dependency 要求。
-2. **Vercel 环境变量换行符修复**：修复了 Vercel CLI 设置 `OPENAI_BASE_URL` 时引入尾部换行符的问题。
-3. **多智能体无限循环 Bug 修复**：修复了 `debate_round` 从未递增导致辩论模式无限循环的问题。
-4. **JSON Parse Error 修复**：前端 `safeJson()` 包装器 + 后端全局异常处理，确保任何情况下都返回合法 JSON。
-5. **Expo Go 蓝屏修复**：删除冲突的 `pnpm-lock.yaml`（锁定 SDK 55 依赖）+ 移除 `tintColor` 样式属性 + 清理 Metro 缓存。
-6. **Serverless 聊天失败修复**：新增 `inline_agents` 机制，前端每次聊天请求直接携带完整 Agent 配置（含 API Key），彻底绕过 Vercel Serverless 无状态内存限制。
-7. **No response body 修复**：React Native 的 `fetch` 不支持 `response.body`（ReadableStream），导致 SSE 流式读取失败。新增 `/api/chat/send` 非流式 JSON 端点，前端改用标准 fetch + JSON 方式通信，彻底解决兼容性问题。
-8. **图标资源过大导致蓝屏**：原始图标每个 4-7MB（共 ~100MB），Expo Go 通过 tunnel 加载时内存溢出/超时崩溃。压缩至 64x64/128x128 优化 PNG（共 ~24KB），彻底解决。
+### 本轮生产激活结论
+
+| 维度 | 结果 | 说明 |
+|------|------|------|
+| 会话与消息持久化 | ✅ 已完成 | 线上聊天消息已真实写入 PostgreSQL |
+| 跨会话记忆 | ✅ 已完成 | 线上两会话回忆验证已通过 |
+| Token 级流式输出 | ✅ 已完成 | `/api/chat/stream` 已完成线上回归 |
+| Tavily 联网搜索 | ✅ 已激活 | 生产环境已注入 `TAVILY_API_KEY` |
+| 导出链路 | ✅ 已修复 | Markdown / PDF / JSON 均可用 |
+| 设置页连接状态 | ✅ 已修复 | 前端已能自动探测后端健康状态 |
+| Expo Web 预览 | ✅ 可用 | 静态导出预览已可用于交互验收 |
+
+### 当前仍需知晓的技术事实
+
+第一，当前生产记忆链路已经稳定可用，但**外部 OpenAI 兼容 embeddings 接口并不可靠**。实测现有 DeepSeek 路径上的 `/embeddings` 返回 404，因此后端新增了统一的 `embedding_service.py`，采用“远程 embedding 可用则优先使用；失败则自动降级到本地哈希向量”的策略。也就是说，系统已经具备**稳定的向量化记忆能力与 pgvector 落库能力**，但若后续要切换为更高质量的外部 embedding，需要补充一个真正支持 `/embeddings` 的提供商凭证，而不是继续复用当前 DeepSeek 路径。
+
+第二，当前生产数据库已从 SQLite 开发兜底迁移到 Neon PostgreSQL。为兼容 Neon 连接串与 `asyncpg`，数据库初始化层已加入 query 参数清洗与 SSL 兼容处理，因此后续若更换数据库供应商，优先检查 `backend/app/models/database.py` 中的连接串标准化逻辑，而不是只改环境变量。
+
+第三，当前导出链路已完成一轮重要修复。此前 PDF 导出在 WeasyPrint 不可用时会把 HTML 字节伪装成 PDF 返回，JSON 导出则完全缺失后端路由；本轮已统一补齐，生产环境现已提供真实 PDF 字节与结构化 JSON 导出接口。
 
 ---
 
 ## [Next Plan] (待办清单)
 
-### 优先级 P0：生产环境变量补齐
-* 在部署平台配置 `DATABASE_URL`，并确保 PostgreSQL 已启用 `pgvector`
-* 配置 `TAVILY_API_KEY`，使联网搜索开关在生产环境真正生效
-* 校验 `OPENAI_BASE_URL` / `EMBEDDING_MODEL` 的 embedding 能力，避免记忆系统仅走关键词降级召回
+### 优先级 P0：补齐真正的远程 Embedding 供应商
 
-### 优先级 P1：生产环境回归验证
-* **持久化验证**：确认会话、Agent、用户配置在 PostgreSQL 中真实落库
-* **记忆验证**：确认 pgvector/embedding 路径可用，而非仅关键词回退
-* **导出验证**：检查移动端导出入口与后端导出路由联通性
+| 项目 | 当前状态 | 下一步 |
+|------|----------|--------|
+| `OPENAI_API_KEY` / `OPENAI_BASE_URL` | 已存在，但当前路径不稳定支持 embeddings | 更换为支持 `/embeddings` 的 OpenAI 兼容服务 |
+| `EMBEDDING_MODEL` | 已可配置 | 与新供应商一起验证维度是否匹配 `PGVECTOR_DIMENSION=1536` |
+| 记忆质量回归 | 仅完成稳定性验证 | 完成一次“远程 embedding 已生效”的精度回归 |
+
+### 优先级 P1：补充前端正式预览/打包流程
+
+当前用于验收的是 **Expo Web 静态导出预览**。它足以完成页面交互验证，但还不是正式分发形态。下一任开发者应继续补齐移动端正式构建与分发流程，并确认静态导出页不再依赖手动修补 `index.html` 的模块脚本声明。
 
 ### 优先级 P2：体验收尾
-* 优化记忆中心与工作流市场页面的交互细节
-* 复测五页面导航、Token 级打字机效果与 Tavily 搜索开关
-* 完成最新改动的提交、推送与部署回归
+
+可以继续优化记忆中心、工作流市场和成员页的空状态表现，并把更多线上验证脚本沉淀为无密版本的自动化检查资产，供 CI 或接任开发者复用。
 
 ---
 
@@ -49,27 +61,75 @@
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| 后端 API（Vercel 生产） | `https://synapse-project-seven.vercel.app` | 永久 URL，已部署 |
-| Health Check | `https://synapse-project-seven.vercel.app/health` | 返回 `{"status":"alive","app":"Synapse","version":"2.1.0"}` |
-| 后端本地 | `http://localhost:8000` | 本地开发时使用 |
-| 前端本地 | `http://localhost:8081` | 本地开发时使用 |
+| 后端 API（Vercel 生产） | `https://synapse-project-seven.vercel.app` | 正式生产地址 |
+| Health Check | `https://synapse-project-seven.vercel.app/health` | 当前返回 `status=alive`、`version=2.2.0`、`database=postgresql+pgvector`、`tavily_enabled=true` |
+| 后端本地 | `http://localhost:8000` | 本地开发使用 |
+| 前端本地 | `http://localhost:8081` | Expo 开发预览 |
+| 前端静态预览 | `http://localhost:8082` | 本地静态导出验收使用 |
 
 ---
 
 ## [环境变量要求]
 
-| 变量名 | 必需 | 说明 | Vercel 状态 |
+| 变量名 | 必需 | 说明 | 当前生产状态 |
 |--------|------|------|-------------|
-| `OPENAI_API_KEY` | ✅ 是 | OpenAI API Key | ✅ 已设置 |
+| `OPENAI_API_KEY` | ✅ 是 | OpenAI 兼容 API Key | ✅ 已设置 |
 | `OPENAI_BASE_URL` | ✅ 是 | OpenAI 兼容 API 的 Base URL | ✅ 已设置 |
-| `DATABASE_URL` | ✅ 是 (M5 新增) | PostgreSQL 连接串，生产环境需启用 pgvector | ⚠️ 待设置 |
-| `TAVILY_API_KEY` | ✅ 是 (M4 新增) | Tavily 搜索 API Key | ⚠️ 待设置 |
-| `EMBEDDING_MODEL` | 建议设置 | 记忆/文档向量化模型 | ⚠️ 建议显式设置 |
-| `ENCRYPTION_KEY` | 否（有默认值） | Fernet 加密密钥 | 使用默认值 |
+| `DATABASE_URL` | ✅ 是 | Neon PostgreSQL 连接串 | ✅ 已设置 |
+| `TAVILY_API_KEY` | ✅ 是 | Tavily 搜索 API Key | ✅ 已设置 |
+| `EMBEDDING_MODEL` | 建议设置 | 记忆/文档向量化模型 | ✅ 已设置（但仍需真正支持 embeddings 的供应商配合） |
+| `ENCRYPTION_KEY` | 否 | Fernet 加密密钥 | 使用默认值 |
+| `PGVECTOR_DIMENSION` | 建议设置 | 当前默认 `1536`，需与 embedding 维度一致 | 使用代码默认值 |
+
+### 安全交接规范（严禁把密钥明文提交到 GitHub）
+
+| 场景 | 正确做法 | 禁止做法 |
+|------|----------|----------|
+| Vercel Token 交接 | 由接任开发者在本地或密码管理器中保存，并通过部署平台或本地环境变量注入 | 把 token 写进仓库、README、PROGRESS.md、脚本或截图 |
+| 数据库连接串交接 | 仅在部署平台环境变量中维护，必要时通过安全渠道单独传递 | 写入 `.env.example` 的真实值或提交到任意代码文件 |
+| API Key 轮换 | 在部署平台替换后立即重新部署并做健康检查 | 在 Git 提交记录中保留旧密钥 |
+| 调试脚本 | 仅保留无密模板，实际密钥运行时注入 | 把真实 `api_key`、`DATABASE_URL`、`TAVILY_API_KEY` 写进脚本 |
+
+> 交接文档中只允许记录**变量名、用途、配置位置、轮换方式与验证步骤**，不允许记录任何真实密钥值。这是本仓库的硬性安全规则。
 
 ---
 
 ## [Completed]
+
+### M5 生产最终激活 ✅ (2026-03-29)
+
+#### 5.6 生产数据库与联网搜索完成激活 ✅
+
+* 生产环境已写入 `DATABASE_URL` 与 `TAVILY_API_KEY`
+* `/health` 已返回 `database=postgresql+pgvector` 与 `tavily_enabled=true`
+* 线上聊天、历史记录与配置接口均已恢复稳定
+
+#### 5.7 Neon / asyncpg 兼容性修复 ✅
+
+* `backend/app/models/database.py`：新增 Neon 连接串 query 参数清洗
+* 将不被 `asyncpg` 接受的参数转换或剔除，避免生产初始化直接失败
+* 保留 SQLite 本地开发兜底能力
+
+#### 5.8 Embedding 稳定性修复 ✅
+
+* 新增 `backend/app/services/embedding_service.py`
+* 记忆服务与 RAG 管道统一改为调用共享 embedding 服务
+* 当远程 embedding 初始化失败或调用 404 时，自动回退到本地哈希向量，保证跨会话记忆与文档检索不中断
+
+#### 5.9 生产运行时与导出链路修复 ✅
+
+* `backend/api/requirements.txt`：补充 `fastapi`，修复 Vercel Python 函数运行时导入失败
+* `backend/app/routers/export.py`：补齐 `/api/export/json/{session_id}`
+* PDF 导出改为生成真实 PDF 字节，不再返回伪装的 HTML 内容
+* Markdown / PDF / JSON 三条导出链路均已完成生产验证
+
+#### 5.10 五页面最终复测 ✅
+
+* 聊天页：可发送消息、读取历史、触发导出
+* 成员页：导航正常，空状态显示符合预期
+* 记忆页：可访问并读取记忆检索入口
+* 工作流页：模板/提示词市场可正常显示
+* 设置页：已自动显示“已连接”，且测试连接按钮工作正常
 
 ### Expo Go 蓝屏修复 + 聊天修复 ✅ (2026-03-28)
 
@@ -136,11 +196,11 @@
 * 设置页新增 Tavily 联网搜索开关
 * 继续保持纯代码 SVG + 1px 黑线极简风格
 
-#### 5.5 当前已知上线前事项
-* 本地健康检查当前显示 `database=sqlite-dev`
-* 本地健康检查当前显示 `tavily_enabled=false`
-* embedding 接口当前返回 404，因此记忆系统本地主要依赖关键词/CJK 降级召回
-* 上述三项均需在生产环境补齐配置后再次回归验证
+#### 5.5 上一阶段已知上线前事项（现已完成）
+* `DATABASE_URL` 已完成生产注入
+* `TAVILY_API_KEY` 已完成生产注入
+* 导出链路已完成联通修复与验证
+* embedding 稳定性已通过统一回退服务解决
 
 ### M4: 智能增强 ✅ (2026-03-28)
 
@@ -183,7 +243,7 @@
 | 通信协议 | SSE (Server-Sent Events)，已支持 Token 级逐字流式 |
 | AI 工具 | Tavily (搜索), PyMuPDF (PDF), python-docx (DOCX) |
 | LLM 供应商 | OpenAI, Gemini, Claude, Custom OpenAI (DeepSeek/Qwen) |
-| 数据存储 | SQLite（本地降级） / PostgreSQL + pgvector（生产目标） |
+| 数据存储 | SQLite（本地降级） / PostgreSQL + pgvector（生产） |
 | 部署平台 | Vercel (Serverless Python) |
 | 版本控制 | GitHub (`jiangquiyue-byte/Synapse-Project`) |
 
@@ -207,4 +267,4 @@
 
 ---
 
-*最后更新: 2026-03-29（M5 主要能力已落地：持久化、跨会话记忆、Token 流式、五页面扩展完成；待生产环境补齐 DATABASE_URL / TAVILY_API_KEY / embedding 能力后做最终上线验证）*
+*最后更新: 2026-03-29（M5 生产激活完成：PostgreSQL/pgvector、跨会话记忆、Token 流式、Tavily、五页面、Markdown/PDF/JSON 导出与设置页连接状态均已完成生产验证；后续重点转向真正支持 embeddings 的远程供应商接入与正式移动端分发流程。）*

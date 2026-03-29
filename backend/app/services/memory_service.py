@@ -5,32 +5,17 @@ import logging
 import math
 import re
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.models.database import IS_POSTGRES, MemoryRecord, session_factory
+from app.services.embedding_service import get_embeddings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-_embeddings = None
-
-
-def _get_embeddings():
-    global _embeddings
-    if _embeddings is None:
-        from langchain_openai import OpenAIEmbeddings
-
-        kwargs: dict[str, Any] = {}
-        if settings.OPENAI_API_KEY:
-            kwargs["api_key"] = settings.OPENAI_API_KEY
-        if settings.OPENAI_BASE_URL:
-            kwargs["base_url"] = settings.OPENAI_BASE_URL
-
-        _embeddings = OpenAIEmbeddings(model=settings.EMBEDDING_MODEL, **kwargs)
-    return _embeddings
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -89,7 +74,7 @@ async def embed_text(text: str) -> Optional[list[float]]:
         return None
 
     try:
-        embeddings_model = _get_embeddings()
+        embeddings_model = get_embeddings()
         return await embeddings_model.aembed_query(cleaned)
     except Exception as exc:
         logger.warning("Memory embedding generation failed: %s", exc)

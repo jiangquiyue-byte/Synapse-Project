@@ -22,26 +22,10 @@ from app.models.database import (
     replace_document_chunks,
     upsert_document,
 )
+from app.services.embedding_service import get_embeddings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-_embeddings = None
-
-
-def _get_embeddings():
-    """Lazy-init OpenAI embeddings using configured credentials."""
-    global _embeddings
-    if _embeddings is None:
-        from langchain_openai import OpenAIEmbeddings
-
-        kwargs = {}
-        if settings.OPENAI_API_KEY:
-            kwargs["api_key"] = settings.OPENAI_API_KEY
-        if settings.OPENAI_BASE_URL:
-            kwargs["base_url"] = settings.OPENAI_BASE_URL
-
-        _embeddings = OpenAIEmbeddings(model=settings.EMBEDDING_MODEL, **kwargs)
-    return _embeddings
 
 
 def _parse_document(file_bytes: bytes, filename: str) -> str:
@@ -116,7 +100,7 @@ async def ingest_document(file_bytes: bytes, filename: str, session_id: str) -> 
     embeddings = []
     has_vectors = False
     try:
-        embeddings_model = _get_embeddings()
+        embeddings_model = get_embeddings()
         embeddings = await embeddings_model.aembed_documents(chunks)
         has_vectors = True
     except Exception as e:
@@ -167,7 +151,7 @@ async def retrieve_rag_context(session_id: str, query: str, k: int = 5) -> str:
 
     if embeddings_available:
         try:
-            embeddings_model = _get_embeddings()
+            embeddings_model = get_embeddings()
             query_embedding = await embeddings_model.aembed_query(query)
             scored = []
             for idx, row in enumerate(rows):

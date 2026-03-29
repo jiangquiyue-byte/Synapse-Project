@@ -1,10 +1,32 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, Image,
+  View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, Alert, Platform,
 } from 'react-native';
 import { useAppStore } from '../../stores/useAppStore';
-import { api } from '../../services/api';
+
+async function probeHealth(baseUrl: string) {
+  const normalized = baseUrl.trim().replace(/\/$/, '');
+  const res = await fetch(`${normalized}/health`);
+  const text = await res.text();
+
+  let payload: any = null;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    payload = { status: 'error', message: text };
+  }
+
+  if (!res.ok) {
+    throw new Error(payload?.message || `HTTP ${res.status}`);
+  }
+
+  if (payload?.status !== 'alive') {
+    throw new Error(payload?.message || '后端返回异常状态');
+  }
+
+  return payload;
+}
 
 export default function SettingsScreen() {
   const {
@@ -15,51 +37,74 @@ export default function SettingsScreen() {
     tavilySearchEnabled,
     setTavilySearchEnabled,
   } = useAppStore();
-  const [urlInput, setUrlInput] = useState(backendUrl);
+  const [urlInput, setUrlInput] = useState(backendUrl || 'https://synapse-project-seven.vercel.app');
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
 
-  const testConnection = async () => {
-    if (!urlInput.trim()) { Alert.alert('提示', '请输入后端地址'); return; }
+  useEffect(() => {
+    if (backendUrl && backendUrl !== urlInput) {
+      setUrlInput(backendUrl);
+    }
+  }, [backendUrl, urlInput]);
+
+  const testConnection = async (options?: { silent?: boolean }) => {
+    const normalized = urlInput.trim().replace(/\/$/, '');
+    if (!normalized) {
+      Alert.alert('提示', '请输入后端地址');
+      return;
+    }
+
     setConnectionStatus('testing');
-    setBackendUrl(urlInput.trim().replace(/\/$/, ''));
     try {
-      const result = await api.health();
-      if (result.status === 'alive') {
-        setConnectionStatus('ok');
+      const result = await probeHealth(normalized);
+      await setBackendUrl(normalized);
+      setConnectionStatus('ok');
+      if (!options?.silent) {
         Alert.alert('连接成功', `Synapse v${result.version}`);
-      } else {
-        setConnectionStatus('error');
-        Alert.alert('连接失败', '后端返回异常状态');
       }
     } catch (e: any) {
       setConnectionStatus('error');
-      Alert.alert('连接失败', e.message);
+      if (!options?.silent) {
+        Alert.alert('连接失败', e?.message || '未知错误');
+      }
     }
   };
+
+  useEffect(() => {
+    const initialUrl = (backendUrl || urlInput || '').trim();
+    if (initialUrl) {
+      void testConnection({ silent: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const statusColors = { idle: '#CCC', testing: '#999', ok: '#4CAF50', error: '#F44336' };
   const statusLabels = { idle: '未连接', testing: '检测中...', ok: '已连接', error: '连接失败' };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Connection */}
       <Text style={styles.sectionTitle}>后端连接</Text>
       <View style={styles.card}>
         <Text style={styles.label}>服务器地址</Text>
-        <TextInput style={styles.textInput} value={urlInput} onChangeText={setUrlInput}
-          placeholder="https://synapse-project-seven.vercel.app" placeholderTextColor="#BBB" autoCapitalize="none" autoCorrect={false} />
+        <TextInput
+          style={styles.textInput}
+          value={urlInput}
+          onChangeText={setUrlInput}
+          placeholder="https://synapse-project-seven.vercel.app"
+          placeholderTextColor="#BBB"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
         <View style={styles.connectionRow}>
           <View style={styles.statusRow}>
             <View style={[styles.statusDot, { backgroundColor: statusColors[connectionStatus] }]} />
             <Text style={styles.statusText}>{statusLabels[connectionStatus]}</Text>
           </View>
-          <TouchableOpacity style={styles.testBtn} onPress={testConnection}>
+          <TouchableOpacity style={styles.testBtn} onPress={() => void testConnection()}>
             <Text style={styles.testBtnText}>测试连接</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Search */}
       <Text style={styles.sectionTitle}>联网搜索</Text>
       <View style={styles.card}>
         <View style={styles.toggleRow}>
@@ -76,7 +121,6 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* Stats */}
       <Text style={styles.sectionTitle}>使用统计</Text>
       <View style={styles.card}>
         <View style={styles.costRow}>
@@ -95,7 +139,6 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* About */}
       <Text style={styles.sectionTitle}>关于</Text>
       <View style={styles.card}>
         <Text style={styles.aboutTitle}>Synapse</Text>
