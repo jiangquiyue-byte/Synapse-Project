@@ -55,6 +55,25 @@ def _tokenize_for_search(text: str) -> list[str]:
     return unique_tokens
 
 
+def _serialize_embedding(value) -> Optional[list[float]]:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, list):
+            return [float(item) for item in value]
+        if isinstance(value, tuple):
+            return [float(item) for item in value]
+        if hasattr(value, "tolist"):
+            converted = value.tolist()
+            if isinstance(converted, list):
+                return [float(item) for item in converted]
+        if isinstance(value, str):
+            return None
+        return [float(item) for item in value]
+    except Exception:
+        return None
+
+
 def _memory_to_dict(record: MemoryRecord, score: Optional[float] = None) -> dict:
     return {
         "id": record.id,
@@ -62,7 +81,7 @@ def _memory_to_dict(record: MemoryRecord, score: Optional[float] = None) -> dict
         "source_message_id": record.source_message_id,
         "content": record.content,
         "metadata_json": record.metadata_json or {},
-        "embedding": record.embedding,
+        "embedding": _serialize_embedding(record.embedding),
         "created_at": record.created_at.isoformat() if record.created_at else "",
         "score": score,
     }
