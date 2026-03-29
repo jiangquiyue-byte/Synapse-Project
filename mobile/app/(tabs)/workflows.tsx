@@ -7,17 +7,33 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { api } from '../../services/api';
 import { ICON_TONES, WorkflowsTabIcon } from '../../components/SynapseIcons';
+import { useAppStore, type Agent, type DiscussionMode } from '../../stores/useAppStore';
+
+type WorkflowAgentConfig = {
+  id: string;
+  name?: string;
+  persona?: string;
+  provider?: Agent['provider'];
+  model?: string;
+  api_key_encrypted?: string;
+  sequence_order?: number;
+  tools?: string[];
+  temperature?: number;
+  supports_vision?: boolean;
+  custom_base_url?: string;
+};
 
 type WorkflowTemplate = {
   id: string;
   name?: string;
   description?: string;
-  mode?: string;
+  mode?: DiscussionMode;
   max_debate_rounds?: number;
-  agent_ids?: string[];
+  agent_configs?: WorkflowAgentConfig[];
 };
 
 type PromptTemplate = {
@@ -27,8 +43,48 @@ type PromptTemplate = {
   category?: string;
 };
 
+const WORKFLOW_NOTES: Record<string, { badge: string; summary: string; checklist: string[] }> = {
+  official_deep_research: {
+    badge: '官方推荐',
+    summary: '适合行业分析、竞品扫描、战略研判与结构化输出。',
+    checklist: ['自动启用联网搜索', '内置研究总监 / 行业分析师 / 数据质检官', '开局即给出结构化研报框架'],
+  },
+  official_expert_roundtable: {
+    badge: '高协作',
+    summary: '适合需求评审、方案争议、功能优先级与跨角色共识。',
+    checklist: ['技术 / 产品 / 设计三专家齐备', '自动切换为辩论模式', '适合快速获得多视角评审结论'],
+  },
+  official_code_audit: {
+    badge: '风险优先',
+    summary: '适合上线前审计、接口复查与关键模块重构建议。',
+    checklist: ['安全漏洞扫描', '逻辑重构建议', '补充测试策略与回归重点'],
+  },
+};
+
+const AGENT_COLORS = ['#EEF3FF', '#F8F0FF', '#EEF8F2', '#FFF7EA', '#FDEFF3'];
+
+function normalizeWorkflowAgent(agent: WorkflowAgentConfig, index: number): Agent {
+  return {
+    id: agent.id,
+    name: agent.name || `Agent ${index + 1}`,
+    persona: agent.persona || '',
+    provider: (agent.provider || 'custom_openai') as Agent['provider'],
+    model: agent.model || 'deepseek-chat',
+    apiKey: agent.api_key_encrypted || '',
+    sequenceOrder: agent.sequence_order ?? index,
+    tools: Array.isArray(agent.tools) ? agent.tools : [],
+    temperature: agent.temperature ?? 0.7,
+    avatarColor: AGENT_COLORS[index % AGENT_COLORS.length],
+    supportsVision: Boolean(agent.supports_vision),
+    customBaseUrl: agent.custom_base_url || '',
+  };
+}
+
 export default function WorkflowsScreen() {
+  const router = useRouter();
+  const refreshSessions = useAppStore((state) => state.refreshSessions);
   const [loading, setLoading] = useState(false);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
 
@@ -58,18 +114,50 @@ export default function WorkflowsScreen() {
     return Array.from(set);
   }, [prompts]);
 
+  const featuredTemplates = useMemo(() => {
+    const officialOrder = ['official_deep_research', 'official_expert_roundtable', 'official_code_audit'];
+    const ordered = officialOrder
+      .map((id) => templates.find((tpl) => tpl.id === id))
+      .filter(Boolean) as WorkflowTemplate[];
+    const remaining = templates.filter((tpl) => !officialOrder.includes(tpl.id));
+    return [...ordered, ...remaining];
+  }, [templates]);
+
   const applyTemplate = useCallback(async (templateId: string) => {
     try {
+      setApplyingId(templateId);
       const result = await api.applyWorkflow(templateId);
-      if (result?.template) {
-        Alert.alert('模板已读取', '该工作流模板已可用于下一步前端编排接入。');
+      const applied = result?.applied;
+      if (!applied?.session_id || !Array.isArray(applied?.agent_configs)) {
+        Alert.alert('套用失败', result?.message || '后端未返回完整的工作流配置。');
         return;
       }
-      Alert.alert('提示', result?.message || '模板已返回，但未包含更多可展示信息。');
+
+      const normalizedAgents = applied.agent_configs.map(normalizeWorkflowAgent);
+
+      useAppStore.setState({
+        agents: normalizedAgents,
+        currentSessionId: applied.session_id,
+        messages: [],
+        discussionMode: (applied.discussion_mode || 'sequential') as DiscussionMode,
+        maxDebateRounds: Number(applied.max_debate_rounds || 3),
+        targetAgentId: null,
+        totalCostUsd: 0,
+      });
+      await refreshSessions();
+
+      Alert.alert(
+        applied.success_message || '模板已套用',
+        `新会话：${applied.session_title || '工作流会话'}\n\n建议开场：${applied.recommended_opening_message || '请基于该工作流模板继续执行。'}`
+      );
+      router.push('/');
+      return;
     } catch (error: any) {
-      Alert.alert('模板读取失败', error?.message || '未知错误');
+      Alert.alert('模板套用失败', error?.message || '未知错误');
+    } finally {
+      setApplyingId(null);
     }
-  }, []);
+  }, [refreshSessions, router]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -79,7 +167,7 @@ export default function WorkflowsScreen() {
           <Text style={styles.heroTitle}>工作流市场</Text>
         </View>
         <Text style={styles.heroSubtitle}>
-          浏览已持久化的工作流模板与提示词资产。当前阶段先提供市场浏览、模板回读与信息审计，为下一步真正的一键套用与分享打基础。
+          直接套用官方工作流，系统会自动创建新会话、写入对应 Agent 群组、切换讨论模式，并把你带回聊天页开始执行。
         </Text>
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
@@ -97,30 +185,63 @@ export default function WorkflowsScreen() {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>工作流模板</Text>
+      <Text style={styles.sectionTitle}>精选官方工作流</Text>
       <View style={styles.card}>
         {loading ? (
-          <Text style={styles.placeholderText}>正在同步市场模板...</Text>
-        ) : templates.length === 0 ? (
-          <Text style={styles.placeholderText}>当前数据库中还没有工作流模板，可以后续在后台继续沉淀。</Text>
+          <Text style={styles.placeholderText}>正在同步工作流模板...</Text>
+        ) : featuredTemplates.length === 0 ? (
+          <Text style={styles.placeholderText}>当前还没有可用模板，请稍后重试。</Text>
         ) : (
-          templates.map((template, index) => (
-            <View key={template.id || `template_${index}`} style={[styles.templateRow, index > 0 && styles.dividerTop]}>
-              <View style={styles.templateMetaRow}>
-                <Text style={styles.templateTitle}>{template.name || '未命名模板'}</Text>
-                <Text style={styles.templateMode}>{template.mode || '未定义模式'}</Text>
+          featuredTemplates.map((template, index) => {
+            const note = WORKFLOW_NOTES[template.id] || {
+              badge: '自定义',
+              summary: '可继续扩展的工作流模板。',
+              checklist: ['支持模板回读', '支持一键创建新会话'],
+            };
+            const agentCount = template.agent_configs?.length || 0;
+            const applying = applyingId === template.id;
+
+            return (
+              <View key={template.id || `template_${index}`} style={[styles.templateCard, index > 0 && styles.dividerTop]}>
+                <View style={styles.templateMetaRow}>
+                  <View style={styles.templateHeaderTextWrap}>
+                    <Text style={styles.templateTitle}>{template.name || '未命名模板'}</Text>
+                    <Text style={styles.templateDesc}>{template.description || '该模板尚未填写描述。'}</Text>
+                  </View>
+                  <View style={styles.badgeWrap}>
+                    <Text style={styles.templateBadge}>{note.badge}</Text>
+                    <Text style={styles.templateMode}>{template.mode || '未定义模式'}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.templateSummary}>{note.summary}</Text>
+                <View style={styles.agentChipsRow}>
+                  {(template.agent_configs || []).map((agent, agentIndex) => (
+                    <View key={agent.id || `${template.id}_agent_${agentIndex}`} style={styles.agentChip}>
+                      <Text style={styles.agentChipText}>{agent.name || `Agent ${agentIndex + 1}`}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.checklistWrap}>
+                  {note.checklist.map((item) => (
+                    <Text key={`${template.id}_${item}`} style={styles.checklistItem}>• {item}</Text>
+                  ))}
+                </View>
+                <View style={styles.templateFooter}>
+                  <Text style={styles.templateInfo}>
+                    Agent 数量 {agentCount} · 辩论轮数 {template.max_debate_rounds ?? 1}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.applyBtn, applying && styles.applyBtnDisabled]}
+                    onPress={() => applyTemplate(template.id)}
+                    disabled={applying}
+                  >
+                    <Text style={styles.applyBtnText}>{applying ? '正在套用...' : '一键套用'}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <Text style={styles.templateDesc}>{template.description || '该模板尚未填写描述。'}</Text>
-              <View style={styles.templateFooter}>
-                <Text style={styles.templateInfo}>
-                  Agent 数量 {template.agent_ids?.length || 0} · 辩论轮数 {template.max_debate_rounds ?? 1}
-                </Text>
-                <TouchableOpacity style={styles.applyBtn} onPress={() => applyTemplate(template.id)}>
-                  <Text style={styles.applyBtnText}>读取模板</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
+            );
+          })
         )}
       </View>
 
@@ -143,10 +264,11 @@ export default function WorkflowsScreen() {
         )}
       </View>
 
-      <Text style={styles.sectionTitle}>市场状态</Text>
+      <Text style={styles.sectionTitle}>使用方式</Text>
       <View style={styles.card}>
-        <Text style={styles.statusText}>当前页面已与后端模板与提示词路由打通，可浏览数据库中的工作流资产。</Text>
-        <Text style={styles.statusText}>下一步可继续补齐：精选推荐、收藏、排序、创建向导与一键应用到聊天页的完整链路。</Text>
+        <Text style={styles.statusText}>1. 在此页选择一个官方工作流并点击「一键套用」。</Text>
+        <Text style={styles.statusText}>2. 系统会自动新建会话、装载对应 Agent 群组，并切换到合适的讨论模式。</Text>
+        <Text style={styles.statusText}>3. 返回聊天页后，直接粘贴需求即可开始协作；若模板提供了建议开场语，可直接照着发第一条消息。</Text>
       </View>
     </ScrollView>
   );
@@ -230,8 +352,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#888888',
   },
-  templateRow: {
-    paddingVertical: 12,
+  templateCard: {
+    paddingVertical: 14,
   },
   promptRow: {
     paddingVertical: 12,
@@ -244,8 +366,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-    alignItems: 'center',
-    marginBottom: 6,
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  templateHeaderTextWrap: {
+    flex: 1,
+    gap: 6,
+  },
+  badgeWrap: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  templateBadge: {
+    fontSize: 10,
+    color: '#2B4EFF',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    overflow: 'hidden',
+    fontWeight: '700',
   },
   templateTitle: {
     flex: 1,
@@ -271,8 +411,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#333333',
   },
+  templateSummary: {
+    fontSize: 12,
+    lineHeight: 19,
+    color: '#666666',
+    marginBottom: 10,
+  },
+  agentChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  agentChip: {
+    borderRadius: 999,
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  agentChipText: {
+    fontSize: 11,
+    color: '#333333',
+    fontWeight: '600',
+  },
+  checklistWrap: {
+    gap: 6,
+  },
+  checklistItem: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#555555',
+  },
   templateFooter: {
-    marginTop: 10,
+    marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -288,6 +459,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#111111',
     paddingHorizontal: 14,
     paddingVertical: 9,
+  },
+  applyBtnDisabled: {
+    opacity: 0.65,
   },
   applyBtnText: {
     color: '#FFFFFF',

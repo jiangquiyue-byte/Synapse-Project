@@ -2,6 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
+from app.services.embedding_service import get_embedding_backend_label
 from app.services.memory_service import build_memory_context, list_memories, semantic_search_memories
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
@@ -16,6 +17,7 @@ async def get_memory_overview(
     return {
         "session_id": session_id,
         "count": len(memories),
+        "backend_label": get_embedding_backend_label(),
         "memories": memories,
     }
 
@@ -36,6 +38,7 @@ async def search_memory(
     return {
         "query": query,
         "count": len(results),
+        "backend_label": get_embedding_backend_label(),
         "results": results,
     }
 
@@ -58,6 +61,7 @@ async def preview_memory_context(
         "current_session_id": current_session_id,
         "context": context,
         "enabled": True,
+        "backend_label": get_embedding_backend_label(),
     }
 
 
@@ -67,6 +71,7 @@ async def get_memory(session_id: str, limit: int = Query(default=50, ge=1, le=20
     return {
         "session_id": session_id,
         "count": len(memories),
+        "backend_label": get_embedding_backend_label(),
         "memory": memories,
         "message": "记忆系统已启用，可基于数据库中的历史会话进行检索",
     }

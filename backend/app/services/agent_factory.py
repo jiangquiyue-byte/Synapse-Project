@@ -20,6 +20,7 @@ def create_llm(agent_config: dict):
     """
     provider = agent_config["provider"]
     api_key = (agent_config.get("api_key_encrypted", "") or "").strip()
+    model = (agent_config["model"] or "").strip()
 
     # Try to decrypt; if it fails, use as-is (for dev/testing)
     if api_key and api_key != "***":
@@ -30,9 +31,10 @@ def create_llm(agent_config: dict):
 
     api_key = (api_key or "").strip()
 
-    # Fallback to system env var only for first-party providers.
-    # custom_openai must prefer the agent-provided key, otherwise DeepSeek/Qwen
-    # requests may be accidentally sent with the system OpenAI key.
+    # Fallback to system env var for first-party providers.
+    # For DeepSeek-based custom_openai agents, also allow a safe fallback to the
+    # system-level OpenAI-compatible credentials so official workflows can run
+    # without per-agent secrets baked into templates.
     if not api_key or api_key == "***":
         if provider == "openai":
             api_key = os.environ.get("OPENAI_API_KEY", "")
@@ -40,8 +42,8 @@ def create_llm(agent_config: dict):
             api_key = os.environ.get("GOOGLE_API_KEY", "")
         elif provider == "claude":
             api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-
-    model = (agent_config["model"] or "").strip()
+        elif provider == "custom_openai" and model.startswith("deepseek"):
+            api_key = os.environ.get("OPENAI_API_KEY", "")
     temp = agent_config.get("temperature", 0.7)
 
     if provider == "openai":
@@ -62,10 +64,15 @@ def create_llm(agent_config: dict):
 
         custom_base_url = (agent_config.get("custom_base_url", "") or "").strip().rstrip("/")
         if not custom_base_url and model.startswith("deepseek"):
-            custom_base_url = "https://api.deepseek.com/v1"
+            custom_base_url = (
+                os.environ.get("OPENAI_BASE_URL", "").strip().rstrip("/")
+                or "https://api.deepseek.com/v1"
+            )
 
         if not custom_base_url:
             raise ValueError("自定义 OpenAI 兼容供应商需要提供 API Base URL")
+        if (not api_key or api_key == "***") and model.startswith("deepseek"):
+            api_key = os.environ.get("OPENAI_API_KEY", "")
         if not api_key or api_key == "***":
             raise ValueError("自定义 OpenAI 兼容供应商缺少可用的 API Key")
 

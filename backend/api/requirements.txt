@@ -20,3 +20,4 @@ sqlalchemy
 asyncpg
 pgvector
 aiosqlite
+fastembed

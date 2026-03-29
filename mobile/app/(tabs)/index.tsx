@@ -23,9 +23,13 @@ import { api } from '../../services/api';
 import SynapsePulse from '../../components/SynapsePulse';
 import {
   AddPlusIcon,
+  CloseCircleIcon,
   DebateModeIcon,
   ICON_TONES,
   ExportDialogIcon,
+  JsonFileIcon,
+  MarkdownFileIcon,
+  PdfFileIcon,
   SendPulseIcon,
   SequentialModeIcon,
   SingleModeIcon,
@@ -39,6 +43,27 @@ const MODE_LABELS: Record<DiscussionMode, string> = {
   vote: '投票',
   single: '指定',
 };
+
+const EXPORT_OPTIONS = [
+  {
+    format: 'markdown' as const,
+    title: 'Markdown',
+    subtitle: '适合继续编辑、沉淀知识库与二次排版。',
+    Icon: MarkdownFileIcon,
+  },
+  {
+    format: 'pdf' as const,
+    title: 'PDF',
+    subtitle: '适合发送汇报、归档留存与只读分享。',
+    Icon: PdfFileIcon,
+  },
+  {
+    format: 'json' as const,
+    title: 'JSON',
+    subtitle: '适合程序消费、自动化处理与结构化迁移。',
+    Icon: JsonFileIcon,
+  },
+];
 
 function ModeIcon({ mode, color = ICON_TONES.primary }: { mode: DiscussionMode; color?: string }) {
   switch (mode) {
@@ -401,23 +426,40 @@ export default function ChatScreen() {
       </View>
 
       <Modal visible={showExportMenu} transparent animationType="fade">
-        <Pressable style={styles.menuOverlay} onPress={() => setShowExportMenu(false)}>
-          <View style={styles.menuContainer}>
-            <TouchableOpacity style={styles.menuItem} onPress={() => void handleExport('markdown')}>
-              <Text style={styles.menuIcon}>MD</Text>
-              <Text style={styles.menuLabel}>导出 Markdown</Text>
-            </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem} onPress={() => void handleExport('pdf')}>
-              <Text style={styles.menuIcon}>PDF</Text>
-              <Text style={styles.menuLabel}>导出 PDF</Text>
-            </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem} onPress={() => void handleExport('json')}>
-              <Text style={styles.menuIcon}>JSON</Text>
-              <Text style={styles.menuLabel}>导出 JSON</Text>
-            </TouchableOpacity>
-          </View>
+        <Pressable style={styles.exportOverlay} onPress={() => setShowExportMenu(false)}>
+          <Pressable style={styles.exportDialog} onPress={() => {}}>
+            <View style={styles.exportDialogHeader}>
+              <View style={styles.exportDialogTitleWrap}>
+                <Text style={styles.exportDialogEyebrow}>导出会话</Text>
+                <Text style={styles.exportDialogTitle}>选择导出格式</Text>
+              </View>
+              <TouchableOpacity style={styles.exportDialogCloseBtn} onPress={() => setShowExportMenu(false)}>
+                <CloseCircleIcon size={18} color={ICON_TONES.subtle} strokeWidth={1} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.exportDialogSubtitle}>
+              当前会话可以导出为可编辑文档、只读归档或结构化数据。选择一种格式后，将直接打开对应导出链接。
+            </Text>
+
+            <View style={styles.exportOptionsWrap}>
+              {EXPORT_OPTIONS.map((item) => {
+                const Icon = item.Icon;
+                return (
+                  <TouchableOpacity key={item.format} style={styles.exportOptionCard} onPress={() => void handleExport(item.format)}>
+                    <View style={styles.exportOptionIconWrap}>
+                      <Icon size={20} color={ICON_TONES.primary} strokeWidth={1.05} />
+                    </View>
+                    <View style={styles.exportOptionTextWrap}>
+                      <Text style={styles.exportOptionTitle}>{item.title}</Text>
+                      <Text style={styles.exportOptionSubtitle}>{item.subtitle}</Text>
+                    </View>
+                    <Text style={styles.exportOptionAction}>导出</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
         </Pressable>
       </Modal>
 
@@ -532,6 +574,101 @@ const styles = StyleSheet.create({
   sendBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { backgroundColor: '#CCC' },
   sendIcon: { width: 16, height: 16 },
+
+  // Export dialog
+  exportOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.32)',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  exportDialog: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderWidth: 0.75,
+    borderColor: '#E8E8E8',
+  },
+  exportDialogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  exportDialogTitleWrap: {
+    flex: 1,
+  },
+  exportDialogEyebrow: {
+    fontSize: 11,
+    color: '#8A8A8A',
+    fontWeight: '700',
+    letterSpacing: 0.35,
+    marginBottom: 4,
+  },
+  exportDialogTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  exportDialogCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  exportDialogSubtitle: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#666666',
+  },
+  exportOptionsWrap: {
+    gap: 12,
+    marginTop: 18,
+  },
+  exportOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 0.8,
+    borderColor: '#E7E7E7',
+    backgroundColor: '#FBFBFB',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  exportOptionIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 0.75,
+    borderColor: '#E7E7E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportOptionTextWrap: {
+    flex: 1,
+  },
+  exportOptionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  exportOptionSubtitle: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#777777',
+  },
+  exportOptionAction: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111111',
+  },
 
   // Plus menu
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end', paddingBottom: 80, paddingHorizontal: 16 },

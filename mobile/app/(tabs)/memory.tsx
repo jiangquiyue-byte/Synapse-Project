@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,7 +11,14 @@ import {
 
 import { api } from '../../services/api';
 import { useAppStore } from '../../stores/useAppStore';
-import { ICON_TONES, MemoryTabIcon, SearchGlobeIcon } from '../../components/SynapseIcons';
+import {
+  ClockTraceIcon,
+  ICON_TONES,
+  MemoryTabIcon,
+  SearchGlobeIcon,
+  SessionStackIcon,
+  SimilaritySignalIcon,
+} from '../../components/SynapseIcons';
 
 type MemoryItem = {
   id?: string;
@@ -21,6 +28,28 @@ type MemoryItem = {
   created_at?: string;
   similarity?: number;
 };
+
+function roleLabel(role?: string) {
+  switch ((role || '').toLowerCase()) {
+    case 'user':
+      return '用户';
+    case 'assistant':
+      return '助手';
+    case 'system':
+      return '系统';
+    case 'synthesizer':
+      return '综合结论';
+    default:
+      return role || 'memory';
+  }
+}
+
+function timeLabel(timestamp?: string) {
+  if (!timestamp) return '最近写入';
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '最近写入';
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
 
 export default function MemoryScreen() {
   const currentSessionId = useAppStore((state) => state.currentSessionId);
@@ -32,6 +61,8 @@ export default function MemoryScreen() {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [searchResults, setSearchResults] = useState<MemoryItem[]>([]);
   const [contextPreview, setContextPreview] = useState('');
+  const [backendLabel, setBackendLabel] = useState('');
+  const [lastQuery, setLastQuery] = useState('');
 
   const currentSessionTitle = useMemo(() => {
     return sessions.find((item) => item.id === currentSessionId)?.title || '当前会话';
@@ -42,6 +73,7 @@ export default function MemoryScreen() {
     try {
       const result = await api.listMemory(undefined, 60);
       setMemories(Array.isArray(result?.memories) ? result.memories : []);
+      setBackendLabel(result?.backend_label || '');
     } finally {
       setLoading(false);
     }
@@ -56,6 +88,7 @@ export default function MemoryScreen() {
     if (!trimmed) {
       setSearchResults([]);
       setContextPreview('');
+      setLastQuery('');
       return;
     }
 
@@ -76,10 +109,12 @@ export default function MemoryScreen() {
 
       setSearchResults(Array.isArray(searchRes?.results) ? searchRes.results : []);
       setContextPreview(contextRes?.context || '暂无可注入的记忆上下文。');
+      setBackendLabel(searchRes?.backend_label || contextRes?.backend_label || backendLabel);
+      setLastQuery(trimmed);
     } finally {
       setLoading(false);
     }
-  }, [currentSessionId, includeCurrentSession, query]);
+  }, [backendLabel, currentSessionId, includeCurrentSession, query]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -88,7 +123,7 @@ export default function MemoryScreen() {
           <MemoryTabIcon size={22} color={ICON_TONES.primary} strokeWidth={1.1} />
           <Text style={styles.heroTitle}>记忆中心</Text>
         </View>
-        <Text style={styles.heroSubtitle}>浏览跨会话记忆、执行语义召回，并预览注入到当前对话的上下文。</Text>
+        <Text style={styles.heroSubtitle}>浏览跨会话记忆、执行语义召回，并预览即将注入当前对话的上下文片段。</Text>
         <View style={styles.metaRow}>
           <View style={styles.metaPill}>
             <Text style={styles.metaLabel}>当前会话</Text>
@@ -98,6 +133,10 @@ export default function MemoryScreen() {
             <Text style={styles.metaLabel}>记忆总数</Text>
             <Text style={styles.metaValue}>{memories.length}</Text>
           </View>
+        </View>
+        <View style={styles.enginePill}>
+          <Text style={styles.engineLabel}>语义引擎</Text>
+          <Text style={styles.engineValue}>{backendLabel || '等待首次检索'}</Text>
         </View>
       </View>
 
@@ -141,23 +180,47 @@ export default function MemoryScreen() {
 
       <Text style={styles.sectionTitle}>上下文预览</Text>
       <View style={styles.card}>
+        <View style={styles.contextHeader}>
+          <Text style={styles.contextTitle}>{lastQuery ? `查询：${lastQuery}` : '等待输入查询'}</Text>
+          <Text style={styles.contextHint}>{includeCurrentSession ? '含当前会话' : '跨会话注入'}</Text>
+        </View>
         <Text style={styles.contextText}>{contextPreview || '输入查询后，这里会展示注入给模型的记忆上下文预览。'}</Text>
       </View>
 
       <Text style={styles.sectionTitle}>召回结果</Text>
-      <View style={styles.card}>
+      <View style={styles.resultsWrap}>
         {searchResults.length === 0 ? (
-          <Text style={styles.placeholderText}>当前还没有检索结果。你可以输入问题测试跨会话召回。</Text>
+          <View style={styles.card}>
+            <Text style={styles.placeholderText}>当前还没有检索结果。你可以输入问题测试跨会话召回。</Text>
+          </View>
         ) : (
           searchResults.map((item, index) => (
-            <View key={`${item.session_id || 'memory'}_${item.id || index}`} style={[styles.memoryRow, index > 0 && styles.memoryDivider]}>
-              <View style={styles.memoryHeader}>
-                <Text style={styles.memorySession}>{item.session_id || '未知会话'}</Text>
-                <Text style={styles.memoryMeta}>
-                  {item.similarity ? `相似度 ${(item.similarity * 100).toFixed(1)}%` : item.role || 'memory'}
-                </Text>
+            <View key={`${item.session_id || 'memory'}_${item.id || index}`} style={styles.resultCard}>
+              <View style={styles.resultHeader}>
+                <View style={styles.resultTitleWrap}>
+                  <Text style={styles.resultTitle}>{item.session_id || '未知会话'}</Text>
+                  <Text style={styles.resultSubtitle}>{roleLabel(item.role)}</Text>
+                </View>
+                <View style={styles.scoreBadge}>
+                  <SimilaritySignalIcon size={14} color={ICON_TONES.primary} strokeWidth={1} />
+                  <Text style={styles.scoreBadgeText}>
+                    {typeof item.similarity === 'number' ? `${(item.similarity * 100).toFixed(1)}%` : '语义命中'}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.memoryContent}>{item.content || '（空记忆）'}</Text>
+
+              <View style={styles.resultMetaRow}>
+                <View style={styles.resultMetaPill}>
+                  <SessionStackIcon size={13} color={ICON_TONES.muted} strokeWidth={1} />
+                  <Text style={styles.resultMetaText}>{item.session_id || '未标记会话'}</Text>
+                </View>
+                <View style={styles.resultMetaPill}>
+                  <ClockTraceIcon size={13} color={ICON_TONES.muted} strokeWidth={1} />
+                  <Text style={styles.resultMetaText}>{timeLabel(item.created_at)}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.resultContent}>{item.content || '（空记忆）'}</Text>
             </View>
           ))
         )}
@@ -172,7 +235,7 @@ export default function MemoryScreen() {
             <View key={`${item.session_id || 'overview'}_${item.id || index}`} style={[styles.memoryRow, index > 0 && styles.memoryDivider]}>
               <View style={styles.memoryHeader}>
                 <Text style={styles.memorySession}>{item.session_id || '未知会话'}</Text>
-                <Text style={styles.memoryMeta}>{item.role || 'memory'}</Text>
+                <Text style={styles.memoryMeta}>{roleLabel(item.role)}</Text>
               </View>
               <Text style={styles.memoryContent}>{item.content || '（空记忆）'}</Text>
             </View>
@@ -239,6 +302,24 @@ const styles = StyleSheet.create({
   metaValue: {
     fontSize: 13,
     color: '#111111',
+    fontWeight: '600',
+  },
+  enginePill: {
+    marginTop: 12,
+    borderRadius: 12,
+    backgroundColor: '#111111',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  engineLabel: {
+    fontSize: 10,
+    color: '#C8C8C8',
+    letterSpacing: 0.45,
+    marginBottom: 4,
+  },
+  engineValue: {
+    fontSize: 12,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   sectionTitle: {
@@ -327,6 +408,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666666',
   },
+  contextHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+  },
+  contextTitle: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  contextHint: {
+    fontSize: 10,
+    color: '#777777',
+    backgroundColor: '#F3F3F3',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
   contextText: {
     fontSize: 13,
     lineHeight: 21,
@@ -336,6 +438,76 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     color: '#888888',
+  },
+  resultsWrap: {
+    gap: 12,
+  },
+  resultCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 0.8,
+    borderColor: '#E5E5E5',
+    padding: 16,
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  resultTitleWrap: {
+    flex: 1,
+  },
+  resultTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  resultSubtitle: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#777777',
+  },
+  scoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    backgroundColor: '#F4F4F4',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  scoreBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  resultMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  resultMetaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 0.75,
+    borderColor: '#E7E7E7',
+    backgroundColor: '#FBFBFB',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  resultMetaText: {
+    fontSize: 11,
+    color: '#595959',
+  },
+  resultContent: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#333333',
   },
   memoryRow: {
     paddingVertical: 10,

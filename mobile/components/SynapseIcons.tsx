@@ -227,3 +227,85 @@ export function SingleModeIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function MarkdownFileIcon(props: IconProps) {
+  const { size, color, strokeWidth, opacity } = withDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" opacity={opacity}>
+      <Path d="M7.4 4.7H14.6L18.2 8.3V18.5C18.2 19.5 17.4 20.3 16.4 20.3H7.4C6.4 20.3 5.6 19.5 5.6 18.5V6.5C5.6 5.5 6.4 4.7 7.4 4.7Z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Path d="M14.4 4.8V8.4H18" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <SvgText x="12" y="16.1" textAnchor="middle" fill={color} fontSize="5.2" fontWeight="700">MD</SvgText>
+    </Svg>
+  );
+}
+
+export function PdfFileIcon(props: IconProps) {
+  const { size, color, strokeWidth, opacity } = withDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" opacity={opacity}>
+      <Path d="M7.4 4.7H14.6L18.2 8.3V18.5C18.2 19.5 17.4 20.3 16.4 20.3H7.4C6.4 20.3 5.6 19.5 5.6 18.5V6.5C5.6 5.5 6.4 4.7 7.4 4.7Z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Path d="M14.4 4.8V8.4H18" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <SvgText x="12" y="16.1" textAnchor="middle" fill={color} fontSize="5.2" fontWeight="700">PDF</SvgText>
+    </Svg>
+  );
+}
+
+export function JsonFileIcon(props: IconProps) {
+  const { size, color, strokeWidth, opacity } = withDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" opacity={opacity}>
+      <Path d="M7.4 4.7H14.6L18.2 8.3V18.5C18.2 19.5 17.4 20.3 16.4 20.3H7.4C6.4 20.3 5.6 19.5 5.6 18.5V6.5C5.6 5.5 6.4 4.7 7.4 4.7Z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Path d="M14.4 4.8V8.4H18" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9.8 12.1C9.1 12.4 8.8 12.8 8.8 13.4C8.8 14 9.1 14.5 9.8 14.9" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14.2 12.1C14.9 12.4 15.2 12.8 15.2 13.4C15.2 14 14.9 14.5 14.2 14.9" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="13.5" r="0.8" fill={color} />
+    </Svg>
+  );
+}
+
+export function SessionStackIcon(props: IconProps) {
+  const { size, color, strokeWidth, opacity } = withDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" opacity={opacity}>
+      <Rect x="6.4" y="6.2" width="11.2" height="7" rx="2" stroke={color} strokeWidth={strokeWidth} />
+      <Rect x="4.6" y="10.8" width="11.2" height="7" rx="2" stroke={color} strokeWidth={strokeWidth} opacity="0.78" />
+      <Path d="M8.2 14.3H12.4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Circle cx="14.3" cy="14.3" r="1" fill={color} />
+    </Svg>
+  );
+}
+
+export function SimilaritySignalIcon(props: IconProps) {
+  const { size, color, strokeWidth, opacity } = withDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" opacity={opacity}>
+      <Path d="M5.6 15.8C7.5 14.2 9 13.4 10.4 13.4C11.8 13.4 13 12.7 14 11.2C15.1 9.6 16.6 8.4 18.4 7.6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="5.8" cy="15.8" r="1.15" fill={color} />
+      <Circle cx="10.4" cy="13.4" r="1.15" fill={color} />
+      <Circle cx="14.1" cy="11.1" r="1.15" fill={color} />
+      <Circle cx="18.3" cy="7.7" r="1.15" fill={color} />
+    </Svg>
+  );
+}
+
+export function ClockTraceIcon(props: IconProps) {
+  const { size, color, strokeWidth, opacity } = withDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" opacity={opacity}>
+      <Circle cx="12" cy="12" r="6.8" stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M12 8.7V12.2L14.6 13.8" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M17.3 6.7L18.7 5.3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function CloseCircleIcon(props: IconProps) {
+  const { size, color, strokeWidth, opacity } = withDefaults(props);
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" opacity={opacity}>
+      <Circle cx="12" cy="12" r="8.2" stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M9.3 9.3L14.7 14.7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M14.7 9.3L9.3 14.7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
