@@ -1,0 +1,124 @@
+{
+  "search": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "payload": {
+      "query": "Synapse",
+      "count": 3,
+      "backend_label": "hf-local-fastembed:sentence-transformers/all-MiniLM-L6-v2",
+      "results": [
+        {
+          "id": "79128ec3-9cb8-4fa4-beef-a6f796f68d29",
+          "session_id": "phase6_stream_verify_session",
+          "source_message_id": "f687db0f-1db0-426b-96f0-63121f71fbe6",
+          "content": "Synapse 是一款支持跨会话记忆管理和数据持久化的智能连接平台。",
+          "metadata_json": {
+            "role": "phase6-agent-1",
+            "agent_name": "验证助手",
+            "timestamp": "2026-03-29T04:12:57.214628",
+            "source": "chat_message"
+          },
+          "embedding": null,
+          "created_at": "2026-03-29T04:12:57.460440",
+          "score": 1.0
+        },
+        {
+          "id": "c98f23a7-d07c-472f-8904-8579dfac697f",
+          "session_id": "phase6_stream_verify_session",
+          "source_message_id": "371f2463-68fa-4b11-90af-f200dce1b73b",
+          "content": "请用一句中文短句介绍 Synapse。",
+          "metadata_json": {
+            "role": "user",
+            "agent_name": "用户",
+            "timestamp": "2026-03-29T04:12:53.324127",
+            "source": "chat_message"
+          },
+          "embedding": null,
+          "created_at": "2026-03-29T04:12:54.683343",
+          "score": 1.0
+        },
+        {
+          "id": "7443c5da-8562-421c-a6fc-97d66ffe2c76",
+          "session_id": "phase6_stream_verify_session",
+          "source_message_id": "6a5afb91-e063-4aa6-a4d9-aabcabdab9e8",
+          "content": "Synapse 是一款支持跨会话记忆管理和数据持久化的智能连接平台。",
+          "metadata_json": {
+            "role": "phase6-agent-1",
+            "agent_name": "验证助手",
+            "timestamp": "2026-03-29T04:12:36.174351",
+            "source": "chat_message"
+          },
+          "embedding": null,
+          "created_at": "2026-03-29T04:12:36.409856",
+          "score": 1.0
+        }
+      ]
+    }
+  },
+  "context": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "payload": {
+      "query": "Synapse",
+      "current_session_id": null,
+      "context": "[历史会话 phase6_stream_verify_session | phase6-agent-1 | 验证助手]\nSynapse 是一款支持跨会话记忆管理和数据持久化的智能连接平台。\n---\n[历史会话 phase6_stream_verify_session | user | 用户]\n请用一句中文短句介绍 Synapse。",
+      "enabled": true,
+      "backend_label": "hf-local-fastembed:sentence-transformers/all-MiniLM-L6-v2"
+    }
+  },
+  "export_markdown": {
+    "status_code": 200,
+    "content_type": "text/markdown; charset=utf-8",
+    "payload": "# Synapse 对话记录\n\n## 用户\n请用一句中文短句介绍 Synapse。\n\n## 验证助手\nSynapse 是一款支持跨会话记忆管理和数据持久化的智能连接平台。\n\n## 用户\n请用一句中文短句介绍 Synapse。\n\n## 验证助手\nSynapse 是一款支持跨会话记忆管理和数据持久化的智能连接平台。\n\n"
+  },
+  "export_json": {
+    "status_code": 200,
+    "content_type": "application/json; charset=utf-8",
+    "payload": {
+      "session_id": "phase6_stream_verify_session",
+      "message_count": 4,
+      "messages": [
+        {
+          "id": "e7631d6e-afce-4b48-b265-2622ccbda291",
+          "role": "user",
+          "agent_name": "用户",
+          "content": "请用一句中文短句介绍 Synapse。",
+          "timestamp": "2026-03-29T04:12:32.199227",
+          "token_count": 0,
+          "cost_usd": 0.0,
+          "branch_id": null
+        },
+        {
+          "id": "6a5afb91-e063-4aa6-a4d9-aabcabdab9e8",
+          "role": "phase6-agent-1",
+          "agent_name": "验证助手",
+          "content": "Synapse 是一款支持跨会话记忆管理和数据持久化的智能连接平台。",
+          "timestamp": "2026-03-29T04:12:36.174351",
+          "token_count": 11,
+          "cost_usd": 1.8e-05,
+          "branch_id": null
+        },
+        {
+          "id": "371f2463-68fa-4b11-90af-f200dce1b73b",
+          "role": "user",
+          "agent_name": "用户",
+          "content": "请用一句中文短句介绍 Synapse。",
+          "timestamp": "2026-03-29T04:12:53.324127",
+          "token_count": 0,
+          "cost_usd": 0.0,
+          "branch_id": null
+        },
+        {
+          "id": "f687db0f-1db0-426b-96f0-63121f71fbe6",
+          "role": "phase6-agent-1",
+          "agent_name": "验证助手",
+          "content": "Synapse 是一款支持跨会话记忆管理和数据持久化的智能连接平台。",
+          "timestamp": "2026-03-29T04:12:57.214628",
+          "token_count": 11,
+          "cost_usd": 1.8e-05,
+          "branch_id": null
+        }
+      ]
+    }
+  }
+}
