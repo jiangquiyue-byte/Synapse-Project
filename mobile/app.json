@@ -2,7 +2,7 @@
   "expo": {
     "name": "Synapse",
     "slug": "synapse",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,8 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.jiangqiuyue.synapse"
+      "package": "com.jiangqiuyue.synapse",
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/favicon.png"

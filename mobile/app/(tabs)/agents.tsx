@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, ScrollView, Alert, Modal, Switch, Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore, Agent } from '../../stores/useAppStore';
 import { api } from '../../services/api';
 import { EmptyAgentsIcon, ICON_TONES } from '../../components/SynapseIcons';
@@ -28,6 +29,7 @@ const AVAILABLE_TOOLS = [
 ];
 
 export default function AgentsScreen() {
+  const insets = useSafeAreaInsets();
   const { agents, addAgent, removeAgent } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -113,7 +115,7 @@ export default function AgentsScreen() {
         data={agents}
         renderItem={renderAgent}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingTop: insets.top + 16 }]}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
@@ -125,20 +127,40 @@ export default function AgentsScreen() {
         }
       />
 
-      <TouchableOpacity style={styles.addBtn} onPress={() => setShowForm(true)}>
+      <TouchableOpacity
+        style={[styles.addBtn, { bottom: insets.bottom + 16 }]}
+        onPress={() => setShowForm(true)}
+      >
         <Text style={styles.addBtnText}>+ 添加成员</Text>
       </TouchableOpacity>
 
-      {/* Modal */}
+      {/* Modal — 新建成员 */}
       <Modal visible={showForm} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={resetForm}><Text style={styles.modalCancel}>取消</Text></TouchableOpacity>
+          {/* Header — 使用 insets.top 确保不被状态栏遮挡 */}
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 14 }]}>
+            <TouchableOpacity
+              onPress={resetForm}
+              style={styles.modalHeaderBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={styles.modalCancel}>取消</Text>
+            </TouchableOpacity>
             <Text style={styles.modalTitle}>新建成员</Text>
-            <TouchableOpacity onPress={handleAddAgent}><Text style={styles.modalSave}>确定</Text></TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleAddAgent}
+              style={styles.modalHeaderBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={styles.modalSave}>确定</Text>
+            </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.form}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text style={styles.label}>名称</Text>
             <TextInput style={styles.textInput} value={name} onChangeText={setName} placeholder="如：资料搜集员" placeholderTextColor="#BBB" />
 
@@ -190,7 +212,7 @@ export default function AgentsScreen() {
               <Switch value={supportsVision} onValueChange={setSupportsVision} trackColor={{ false: '#E5E5E5', true: '#000000' }} thumbColor={supportsVision ? '#FFF' : '#CCC'} />
             </View>
 
-            <View style={{ height: 60 }} />
+            <View style={{ height: insets.bottom + 60 }} />
           </ScrollView>
         </View>
       </Modal>
@@ -200,7 +222,7 @@ export default function AgentsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  list: { padding: 16, paddingBottom: 80 },
+  list: { padding: 16, paddingBottom: 100 },
 
   // Card
   card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: '#E5E5E5' },
@@ -225,22 +247,35 @@ const styles = StyleSheet.create({
   emptyHint: { fontSize: 12, color: '#BBB' },
 
   // Add button
-  addBtn: { position: 'absolute', bottom: 24, left: 16, right: 16, height: 48, borderRadius: 24, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  addBtn: { position: 'absolute', left: 16, right: 16, height: 48, borderRadius: 24, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
   addBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 
   // Modal
   modalContainer: { flex: 1, backgroundColor: '#FFFFFF' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5' },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E5E5',
+  },
+  modalHeaderBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   modalCancel: { fontSize: 15, color: '#999' },
   modalTitle: { fontSize: 16, fontWeight: '700', color: '#000000' },
-  modalSave: { fontSize: 15, fontWeight: '700', color: '#000000' },
+  modalSave: { fontSize: 15, fontWeight: '700', color: '#000000', textAlign: 'right' },
   form: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   label: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 16 },
   textInput: { backgroundColor: '#F5F5F5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#000000' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
 
   // Provider
-  providerRow: { flexDirection: 'row', gap: 6 },
+  providerRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   providerBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F5F5F5' },
   providerBtnActive: { backgroundColor: '#000000' },
   providerBtnText: { fontSize: 12, fontWeight: '600', color: '#666' },
