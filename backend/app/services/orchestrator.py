@@ -13,7 +13,7 @@ from typing import Annotated, Any, AsyncGenerator, TypedDict
 from uuid import uuid4
 
 from app.services.agent_factory import create_llm
-from app.services.cost_tracker import count_tokens, estimate_cost
+from app.services.cost_tracker import count_tokens, estimate_cost, estimate_cost_detailed
 
 
 class ConversationState(TypedDict):
@@ -228,8 +228,12 @@ async def _emit_text_as_tokens(
 
 async def invoke_agent_response(cfg: dict, state: ConversationState) -> dict:
     content = await _invoke_agent_content(cfg, state)
-    tokens = count_tokens(content, cfg["model"])
-    cost = estimate_cost(tokens, cfg["model"], cfg["provider"])
+    # Estimate prompt tokens from system + user messages
+    system_msg, llm_messages = _build_agent_prompt(cfg, state)
+    prompt_text = system_msg + " " + state.get("user_query", "")
+    prompt_tokens = count_tokens(prompt_text, cfg["model"])
+    completion_tokens = count_tokens(content, cfg["model"])
+    cost_detail = estimate_cost_detailed(prompt_tokens, completion_tokens, cfg["model"], cfg["provider"])
 
     return {
         "messages": [{
@@ -238,8 +242,12 @@ async def invoke_agent_response(cfg: dict, state: ConversationState) -> dict:
             "agent_name": cfg["name"],
             "content": content,
             "timestamp": datetime.utcnow().isoformat(),
-            "token_count": tokens,
-            "cost_usd": cost,
+            "token_count": prompt_tokens + completion_tokens,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "cost_usd": cost_detail["total_cost_usd"],
+            "cost_cny": cost_detail["total_cost_cny"],
+            "cost_detail": cost_detail,
         }],
         "current_agent_index": state["current_agent_index"] + 1,
     }
@@ -417,8 +425,12 @@ async def _stream_agent_response(cfg: dict, state: ConversationState) -> AsyncGe
             content = event["data"]["content"]
             yield event
 
-    tokens = count_tokens(content, cfg["model"])
-    cost = estimate_cost(tokens, cfg["model"], cfg["provider"])
+    # Use prompt/completion split for accurate billing
+    system_msg_for_cost, _ = _build_agent_prompt(cfg, state)
+    prompt_text_for_cost = system_msg_for_cost + " " + state.get("user_query", "")
+    prompt_tokens = count_tokens(prompt_text_for_cost, cfg["model"])
+    completion_tokens = count_tokens(content, cfg["model"])
+    cost_detail = estimate_cost_detailed(prompt_tokens, completion_tokens, cfg["model"], cfg["provider"])
     yield {
         "event": "agent_message",
         "data": {
@@ -427,8 +439,12 @@ async def _stream_agent_response(cfg: dict, state: ConversationState) -> AsyncGe
             "agent_name": cfg["name"],
             "content": content,
             "timestamp": datetime.utcnow().isoformat(),
-            "token_count": tokens,
-            "cost_usd": cost,
+            "token_count": prompt_tokens + completion_tokens,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "cost_usd": cost_detail["total_cost_usd"],
+            "cost_cny": cost_detail["total_cost_cny"],
+            "cost_detail": cost_detail,
         },
     }
 

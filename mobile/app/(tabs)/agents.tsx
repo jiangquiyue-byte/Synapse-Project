@@ -6,6 +6,7 @@ import {
 import { useAppStore, Agent } from '../../stores/useAppStore';
 import { api } from '../../services/api';
 import { EmptyAgentsIcon, ICON_TONES } from '../../components/SynapseIcons';
+import { ModelAvatar } from '../../components/ModelAvatars';
 
 const PROVIDERS = [
   { label: 'OpenAI', value: 'openai' },
@@ -85,7 +86,7 @@ export default function AgentsScreen() {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardAvatar}>
-          <Text style={styles.cardAvatarText}>{item.name[0]}</Text>
+          <ModelAvatar model={item.model} size={36} />
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardName}>{item.name}</Text>

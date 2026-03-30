@@ -205,4 +205,10 @@ export const api = {
   // Chat URLs
   getChatStreamUrl: () => `${getBaseUrl()}/api/chat/stream`,
   getChatSendUrl: () => `${getBaseUrl()}/api/chat/send`,
+
+  // Billing
+  getBillingStats: async () => {
+    const res = await fetch(`${getBaseUrl()}/api/state/billing/stats`);
+    return safeJson(res);
+  },
 };

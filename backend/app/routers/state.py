@@ -70,3 +70,32 @@ async def get_config(key: str):
 async def put_config(key: str, request: UserConfigRequest):
     saved = await set_user_config(key, request.value)
     return saved
+
+
+@router.get("/billing/stats")
+async def get_billing_stats():
+    """Get aggregated billing statistics across all sessions."""
+    from app.models.database import get_db
+    from sqlalchemy import select, func
+    from app.models.database import MessageRecord
+    try:
+        async with get_db() as db:
+            result = await db.execute(
+                select(
+                    func.sum(MessageRecord.cost_usd).label("total_cost_usd"),
+                    func.sum(MessageRecord.token_count).label("total_tokens"),
+                    func.count(MessageRecord.id).label("message_count"),
+                ).where(MessageRecord.role != "user")
+            )
+            row = result.first()
+            total_usd = float(row.total_cost_usd or 0)
+            total_cny = total_usd * 7.25
+            return {
+                "total_cost_usd": round(total_usd, 8),
+                "total_cost_cny": round(total_cny, 6),
+                "total_tokens": int(row.total_tokens or 0),
+                "message_count": int(row.message_count or 0),
+                "usd_to_cny_rate": 7.25,
+            }
+    except Exception as e:
+        return {"total_cost_usd": 0, "total_cost_cny": 0, "total_tokens": 0, "message_count": 0, "error": str(e)}

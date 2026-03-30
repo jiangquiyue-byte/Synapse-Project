@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.models.database import close_db, init_db
 from app.routers import agents, chat, export, memory, state, upload, workflows
+from app.services.embedding_service import get_embedding_backend_label
 
 settings = get_settings()
 
@@ -22,7 +23,7 @@ async def lifespan(_: FastAPI):
         await close_db()
 
 
-app = FastAPI(title="Synapse Backend", version="2.2.0", lifespan=lifespan)
+app = FastAPI(title="Synapse Backend", version="2.5.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -81,7 +82,10 @@ async def health():
     return {
         "status": "alive",
         "app": "Synapse",
-        "version": "2.2.0",
+        "version": "2.5.0",
         "database": "postgresql+pgvector" if settings.DATABASE_URL.startswith(("postgres://", "postgresql://")) else "sqlite-dev",
         "tavily_enabled": bool(settings.TAVILY_API_KEY),
+        "embedding_backend": get_embedding_backend_label(),
+        "m5_production": True,
+        "features": ["ai-hall-of-fame", "dual-currency-billing", "semantic-memory", "multi-agent", "knowledge-base"],
     }

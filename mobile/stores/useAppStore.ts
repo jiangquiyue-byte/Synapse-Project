@@ -51,6 +51,10 @@ interface AppState {
   targetAgentId: string | null;
   totalCostUsd: number;
   tavilySearchEnabled: boolean;
+  userNickname: string;
+  userAvatarColor: string;
+  userAvatarUri: string;
+  hasCompletedIdentitySetup: boolean;
 
   initializeApp: () => Promise<void>;
   createNewSession: (title?: string) => Promise<string>;
@@ -75,6 +79,7 @@ interface AppState {
   setBackendUrl: (url: string) => Promise<void>;
   setTavilySearchEnabled: (enabled: boolean) => Promise<void>;
   addCost: (cost: number) => void;
+  setUserIdentity: (nickname: string, avatarColor: string, avatarUri?: string) => void;
 }
 
 const makeSessionId = () => `session_${Date.now()}`;
@@ -126,6 +131,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   targetAgentId: null,
   totalCostUsd: 0,
   tavilySearchEnabled: false,
+  userNickname: '',
+  userAvatarColor: '#1A1A2E',
+  userAvatarUri: '',
+  hasCompletedIdentitySetup: false,
 
   initializeApp: async () => {
     if (get().isBootstrapping) return;
@@ -271,4 +280,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addCost: (cost) => set((s) => ({ totalCostUsd: s.totalCostUsd + cost })),
+  setUserIdentity: (nickname, avatarColor, avatarUri = '') =>
+    set({ userNickname: nickname, userAvatarColor: avatarColor, userAvatarUri: avatarUri, hasCompletedIdentitySetup: true }),
 }));

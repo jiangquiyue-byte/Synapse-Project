@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Linking,
   Modal,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +22,8 @@ import { useAppStore, Message, DiscussionMode } from '../../stores/useAppStore';
 import { SSEClient } from '../../services/sseClient';
 import { api } from '../../services/api';
 import SynapsePulse from '../../components/SynapsePulse';
+import { ModelAvatar } from '../../components/ModelAvatars';
+import UserIdentitySetup from '../../components/UserIdentitySetup';
 import {
   AddPlusIcon,
   CloseCircleIcon,
@@ -79,6 +82,34 @@ function ModeIcon({ mode, color = ICON_TONES.primary }: { mode: DiscussionMode; 
   }
 }
 
+// User avatar component
+function UserAvatar({ nickname, avatarColor, avatarUri, size = 32 }: {
+  nickname: string;
+  avatarColor: string;
+  avatarUri?: string;
+  size?: number;
+}) {
+  if (avatarUri) {
+    return (
+      <Image
+        source={{ uri: avatarUri }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+      />
+    );
+  }
+  return (
+    <View style={{
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: avatarColor,
+      justifyContent: 'center', alignItems: 'center',
+    }}>
+      <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: '#FFFFFF' }}>
+        {nickname ? nickname[0].toUpperCase() : 'U'}
+      </Text>
+    </View>
+  );
+}
+
 export default function ChatScreen() {
   const {
     messages,
@@ -95,6 +126,11 @@ export default function ChatScreen() {
     maxDebateRounds,
     addCost,
     tavilySearchEnabled,
+    userNickname,
+    userAvatarColor,
+    userAvatarUri,
+    hasCompletedIdentitySetup,
+    setUserIdentity,
   } = useAppStore();
 
   const [inputText, setInputText] = useState('');
@@ -102,10 +138,35 @@ export default function ChatScreen() {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showAtMenu, setShowAtMenu] = useState(false);
+  const [showIdentitySetup, setShowIdentitySetup] = useState(!hasCompletedIdentitySetup);
   const flatListRef = useRef<FlatList>(null);
   const sseClient = useRef(new SSEClient());
 
+  useEffect(() => {
+    if (!hasCompletedIdentitySetup) setShowIdentitySetup(true);
+  }, [hasCompletedIdentitySetup]);
+
   const hasBackend = () => !!(backendUrl || api.getChatStreamUrl());
+
+  // Handle @ input detection
+  const handleInputChange = useCallback((text: string) => {
+    setInputText(text);
+    // Show @ menu when user types @
+    if (text.endsWith('@') && agents.length > 0) {
+      setShowAtMenu(true);
+    } else if (!text.includes('@')) {
+      setShowAtMenu(false);
+    }
+  }, [agents]);
+
+  const handleAtSelect = useCallback((agentName: string) => {
+    setInputText(prev => {
+      const lastAt = prev.lastIndexOf('@');
+      return prev.substring(0, lastAt) + `@${agentName} `;
+    });
+    setShowAtMenu(false);
+  }, []);
 
   // ─── Plus Menu Actions ───
   const handleDocumentUpload = useCallback(async () => {
@@ -193,6 +254,7 @@ export default function ChatScreen() {
 
     addMessage({ id: 'user_' + Date.now(), role: 'user', content: selectedImage ? `[图片] ${text}` : text, timestamp: new Date().toISOString() });
     setInputText('');
+    setShowAtMenu(false);
     setLoading(true);
 
     let targetAgentId: string | null = null;
@@ -292,7 +354,7 @@ export default function ChatScreen() {
     tavilySearchEnabled,
   ]);
 
-  // ─── Render ───
+  // ─── Render Message (群聊布局) ───
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === 'user';
     const isSystem = item.role === 'system';
@@ -318,18 +380,42 @@ export default function ChatScreen() {
         </View>
       );
     }
+
+    // Find agent config for model avatar
+    const agentCfg = agents.find(a => a.name === item.agentName || a.id === item.role);
+    const costCny = item.costUsd ? (item.costUsd * 7.25) : 0;
+
     return (
       <View style={[styles.msgRow, isUser ? styles.msgRowRight : styles.msgRowLeft]}>
+        {/* Left: AI official avatar */}
         {!isUser && (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(item.agentName || 'A')[0]}</Text>
+          <View style={styles.aiAvatarWrap}>
+            <ModelAvatar model={agentCfg?.model || item.agentName || ''} size={32} />
           </View>
         )}
+
+        {/* Message bubble */}
         <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAgent]}>
           {!isUser && <Text style={styles.agentLabel}>{item.agentName}</Text>}
           <Text style={[styles.msgText, isUser && styles.msgTextUser]}>{item.content}</Text>
-          {item.tokenCount ? <Text style={styles.tokenText}>{item.tokenCount} tokens · ${item.costUsd?.toFixed(6)}</Text> : null}
+          {item.tokenCount ? (
+            <Text style={styles.tokenText}>
+              {item.tokenCount} tokens · ${item.costUsd?.toFixed(6)} / ¥{costCny.toFixed(5)}
+            </Text>
+          ) : null}
         </View>
+
+        {/* Right: User custom avatar */}
+        {isUser && (
+          <View style={styles.userAvatarWrap}>
+            <UserAvatar
+              nickname={userNickname || 'U'}
+              avatarColor={userAvatarColor || '#1A1A2E'}
+              avatarUri={userAvatarUri}
+              size={32}
+            />
+          </View>
+        )}
       </View>
     );
   };
@@ -342,10 +428,21 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
+      {/* Identity Setup Modal — 强制门控 */}
+      <UserIdentitySetup
+        visible={showIdentitySetup}
+        onComplete={(identity) => {
+          setUserIdentity(identity.nickname, identity.avatarColor, identity.avatarUri);
+          setShowIdentitySetup(false);
+        }}
+      />
+
       <View style={styles.topActionBar}>
         <View style={styles.topActionMeta}>
           <Text style={styles.topActionTitle}>当前会话</Text>
-          <Text style={styles.topActionSubtitle}>{tavilySearchEnabled ? '联网搜索已启用' : '本地对话模式'}</Text>
+          <Text style={styles.topActionSubtitle}>
+            {userNickname ? `${userNickname} · ` : ''}{tavilySearchEnabled ? '联网搜索已启用' : '本地对话模式'}
+          </Text>
         </View>
         <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExportMenu(true)}>
           <ExportDialogIcon size={15} color={ICON_TONES.primary} strokeWidth={1.05} />
@@ -381,6 +478,25 @@ export default function ChatScreen() {
         </View>
       )}
 
+      {/* @ Mention popup */}
+      {showAtMenu && agents.length > 0 && (
+        <View style={styles.atMenuContainer}>
+          <Text style={styles.atMenuTitle}>@ 呼唤 Agent</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.atMenuScroll}>
+            {agents.map((agent) => (
+              <TouchableOpacity
+                key={agent.id}
+                style={styles.atAgentChip}
+                onPress={() => handleAtSelect(agent.name)}
+              >
+                <ModelAvatar model={agent.model} size={24} />
+                <Text style={styles.atAgentName}>{agent.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Image preview */}
       {selectedImage && (
         <View style={styles.imgPreview}>
@@ -411,8 +527,8 @@ export default function ChatScreen() {
         <TextInput
           style={styles.input}
           value={inputText}
-          onChangeText={setInputText}
-          placeholder="输入消息..."
+          onChangeText={handleInputChange}
+          placeholder="输入消息... 或 @ 呼唤 Agent"
           placeholderTextColor="#999"
           multiline
           maxLength={2000}
@@ -527,13 +643,32 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
   },
 
-  // Messages
+  // Messages — 群聊布局
   msgRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'flex-end' },
   msgRowLeft: { justifyContent: 'flex-start' },
   msgRowRight: { justifyContent: 'flex-end' },
-  avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginRight: 8, borderWidth: 0.5, borderColor: '#E0E0E0' },
-  avatarText: { fontSize: 12, fontWeight: '700', color: '#666' },
-  bubble: { maxWidth: '78%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16 },
+
+  // AI avatar (left side)
+  aiAvatarWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 8,
+    overflow: 'hidden',
+    alignSelf: 'flex-end',
+  },
+
+  // User avatar (right side)
+  userAvatarWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginLeft: 8,
+    overflow: 'hidden',
+    alignSelf: 'flex-end',
+  },
+
+  bubble: { maxWidth: '72%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16 },
   bubbleUser: { backgroundColor: '#000000', borderBottomRightRadius: 4 },
   bubbleAgent: { backgroundColor: '#F2F2F2', borderBottomLeftRadius: 4 },
   agentLabel: { fontSize: 10, fontWeight: '700', color: '#888', marginBottom: 4 },
@@ -556,6 +691,34 @@ const styles = StyleSheet.create({
   // Loading
   loadingBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 10 },
   loadingText: { fontSize: 12, color: '#999' },
+
+  // @ mention menu
+  atMenuContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E5E5',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  atMenuTitle: { fontSize: 10, fontWeight: '700', color: '#999', marginBottom: 6, letterSpacing: 0.3 },
+  atMenuScroll: { flexDirection: 'row' },
+  atAgentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 8,
+    gap: 6,
+    borderWidth: 0.5,
+    borderColor: '#E0E0E0',
+  },
+  atAgentName: { fontSize: 12, fontWeight: '600', color: '#333' },
 
   // Image preview
   imgPreview: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#F8F8F8', borderTopWidth: 0.5, borderTopColor: '#E5E5E5', gap: 8 },
