@@ -75,11 +75,10 @@ async def put_config(key: str, request: UserConfigRequest):
 @router.get("/billing/stats")
 async def get_billing_stats():
     """Get aggregated billing statistics across all sessions."""
-    from app.models.database import get_db
     from sqlalchemy import select, func
-    from app.models.database import MessageRecord
+    from app.models.database import MessageRecord, session_factory
     try:
-        async with get_db() as db:
+        async with session_factory() as db:
             result = await db.execute(
                 select(
                     func.sum(MessageRecord.cost_usd).label("total_cost_usd"),
