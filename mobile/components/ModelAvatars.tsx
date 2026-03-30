@@ -512,3 +512,13 @@ export const LMSYS_TOP20 = [
   { rank: 19, name: 'Yi-Lightning', model: 'yi-lightning', provider: '01ai', score: 1178 },
   { rank: 20, name: 'GPT-4.1-mini', model: 'gpt-4.1-mini', provider: 'openai', score: 1172 },
 ];
+
+// ─── ModelAvatar 统一入口组件（修复 Element type is invalid 闪退）────────────
+/**
+ * ModelAvatar — 根据模型名自动匹配官方 SVG 图标的统一入口组件
+ * 供 index.tsx 和 agents.tsx 使用
+ */
+export function ModelAvatar({ model, size = 36 }: { model: string; size?: number }) {
+  return getModelAvatar(model, size);
+}
+
