@@ -20,7 +20,11 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.jiangqiuyue.synapse"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,6 +34,13 @@
       "expo-router",
       "expo-document-picker",
       "expo-image-picker"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a0ba2615-35f3-4492-98aa-d3a03de5e9a9"
+      }
+    },
+    "owner": "jiangqiuyue"
   }
 }
