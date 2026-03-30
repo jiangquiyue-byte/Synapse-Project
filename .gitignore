@@ -4,12 +4,15 @@ __pycache__/
 *.egg-info/
 .env
 venv/
+*.db
 
 # Node
 node_modules/
 .expo/
 dist/
+web-build/
 *.tsbuildinfo
+.metro-health-check*
 
 # IDE
 .vscode/
@@ -18,16 +21,17 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+*.pem
 
-# Build
+# Build artifacts
 *.apk
 *.ipa
 .vercel
 .env*.local
+
+# Project-specific temp files
 blueprint.docx
 blueprint_notes.txt
-
-# Local verification artifacts
 backend/synapse.db
 export_check/
 mobile/dist-web/
@@ -35,3 +39,11 @@ prod_smoke.sh
 vercel_api_list.txt
 vercel_project_metadata.json
 web_preview_findings_*.txt
+
+# Research & internal docs (keep local only)
+research/
+deliverables/
+DAILY_LOG_*.md
+DELIVERY_SUMMARY_*.md
+HANDOFF_*.md
+STATUS_AUDIT_*.md
