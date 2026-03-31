@@ -1,3 +1,5 @@
+from app.core.auth import get_current_user
+from fastapi import Depends
 import json
 from datetime import datetime
 from uuid import uuid4
@@ -18,7 +20,7 @@ from app.services.memory_service import build_memory_context, remember_message
 from app.services.orchestrator import ConversationState, build_graph, stream_conversation
 from app.services.rag_pipeline import retrieve_rag_context
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
+router = APIRouter(prefix="/api/chat", tags=["chat"], dependencies=[Depends(get_current_user)])
 
 
 async def _resolve_agents(request: ChatRequest) -> list[dict]:

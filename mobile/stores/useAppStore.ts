@@ -58,7 +58,6 @@ interface AppState {
   userAvatarColor: string;
   userAvatarUri: string;
   hasCompletedIdentitySetup: boolean;
-  authToken: string;
 
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
@@ -86,8 +85,6 @@ interface AppState {
   setTavilySearchEnabled: (enabled: boolean) => Promise<void>;
   addCost: (cost: number) => void;
   setUserIdentity: (nickname: string, avatarColor: string, avatarUri?: string) => void;
-  setAuthToken: (token: string) => void;
-  clearAuthToken: () => void;
 }
 
 const makeSessionId = () => `session_${Date.now()}`;
@@ -148,7 +145,6 @@ export const useAppStore = create<AppState>()(
       userAvatarColor: '#1A1A2E',
       userAvatarUri: '',
       hasCompletedIdentitySetup: false,
-      authToken: '',
 
       initializeApp: async () => {
         if (get().isBootstrapping) return;
@@ -296,9 +292,6 @@ export const useAppStore = create<AppState>()(
       addCost: (cost) => set((s) => ({ totalCostUsd: s.totalCostUsd + cost })),
       setUserIdentity: (nickname, avatarColor, avatarUri = '') =>
         set({ userNickname: nickname, userAvatarColor: avatarColor, userAvatarUri: avatarUri, hasCompletedIdentitySetup: true }),
-
-      setAuthToken: (token: string) => set({ authToken: token }),
-      clearAuthToken: () => set({ authToken: '' }),
     }),
     {
       name: 'synapse-app-storage',
@@ -311,7 +304,6 @@ export const useAppStore = create<AppState>()(
         userAvatarColor: state.userAvatarColor,
         userAvatarUri: state.userAvatarUri,
         hasCompletedIdentitySetup: state.hasCompletedIdentitySetup,
-        authToken: state.authToken,
         backendUrl: state.backendUrl,
         tavilySearchEnabled: state.tavilySearchEnabled,
         totalCostUsd: state.totalCostUsd,

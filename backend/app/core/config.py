@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     DATABASE_URL: str = Field(default="sqlite+aiosqlite:///./synapse.db")
-    ENCRYPTION_KEY: str = "ghszRjI0495ouFAPRF-V_GahG3nSc8tlmeM_KKCzDCE="
+    ENCRYPTION_KEY: str = Field(default="ghszRjI0495ouFAPRF-V_GahG3nSc8tlmeM_KKCzDCE=")
     TAVILY_API_KEY: str = ""
     CORS_ORIGINS: list[str] = Field(default_factory=lambda: ["*"])
 

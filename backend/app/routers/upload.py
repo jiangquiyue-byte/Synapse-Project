@@ -1,3 +1,5 @@
+from app.core.auth import get_current_user
+from fastapi import Depends
 import traceback
 
 from fastapi import APIRouter, File, Form, UploadFile
@@ -10,7 +12,7 @@ from app.services.rag_pipeline import (
     retrieve_rag_context,
 )
 
-router = APIRouter(prefix="/api/upload", tags=["upload"])
+router = APIRouter(prefix="/api/upload", tags=["upload"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/")

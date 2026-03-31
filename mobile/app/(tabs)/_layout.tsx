@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 import SynapsePulse from '../../components/SynapsePulse';
 import {
@@ -58,7 +59,8 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
+    <ErrorBoundary>
+      <Tabs
       screenOptions={{
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
@@ -121,7 +123,8 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => <TabIcon name="settings" focused={focused} />,
         }}
       />
-    </Tabs>
+      </Tabs>
+    </ErrorBoundary>
   );
 }
 

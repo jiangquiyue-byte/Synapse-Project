@@ -1,3 +1,5 @@
+from app.core.auth import get_current_user
+from fastapi import Depends
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -11,7 +13,7 @@ from app.models.database import (
 )
 from app.models.schemas import AgentConfig
 
-router = APIRouter(prefix="/api/agents", tags=["agents"])
+router = APIRouter(prefix="/api/agents", tags=["agents"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/")

@@ -52,6 +52,8 @@ export class SSEClient {
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Accept', 'text/event-stream');
       xhr.setRequestHeader('Cache-Control', 'no-cache');
+      const token = require('../stores/useAppStore').useAppStore.getState().authToken;
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.timeout = 0;
 
       let finished = false;
@@ -189,7 +191,7 @@ export class SSEClient {
     try {
       const response = await fetch(sendUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(require('../stores/useAppStore').useAppStore.getState().authToken ? { 'Authorization': `Bearer ${require('../stores/useAppStore').useAppStore.getState().authToken}` } : {}) },
         body: JSON.stringify(body),
       });
 

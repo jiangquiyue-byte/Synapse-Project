@@ -1,3 +1,5 @@
+from app.core.auth import get_current_user
+from fastapi import Depends
 from uuid import uuid4
 
 from uuid import uuid4
@@ -15,7 +17,7 @@ from app.models.database import (
 )
 from app.models.schemas import PromptTemplate, WorkflowTemplate
 
-router = APIRouter(prefix="/api/workflows", tags=["workflows"])
+router = APIRouter(prefix="/api/workflows", tags=["workflows"], dependencies=[Depends(get_current_user)])
 
 
 def _official_templates() -> list[dict]:

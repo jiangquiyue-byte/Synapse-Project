@@ -1,3 +1,5 @@
+from app.core.auth import get_current_user
+from fastapi import Depends
 import io
 import json
 
@@ -7,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from app.models.database import get_session_messages
 
-router = APIRouter(prefix="/api/export", tags=["export"])
+router = APIRouter(prefix="/api/export", tags=["export"], dependencies=[Depends(get_current_user)])
 
 
 def _build_export_payload(session_id: str, messages: list[dict]) -> dict:

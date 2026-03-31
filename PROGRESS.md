@@ -268,3 +268,35 @@
 ---
 
 *最后更新: 2026-03-29（M5 生产激活完成：PostgreSQL/pgvector、跨会话记忆、Token 流式、Tavily、五页面、Markdown/PDF/JSON 导出与设置页连接状态均已完成生产验证；后续重点转向真正支持 embeddings 的远程供应商接入与正式移动端分发流程。）*
+
+---
+
+## Phase 6 — Bug Fix Patch v2 (2026-04-01)
+
+### 修复内容汇总
+
+| 问题编号 | 描述 | 状态 |
+|---------|------|------|
+| 1 | 登录持久化 + 水合等待 | ✅ 已完成（补丁包） |
+| 2 | AI 消息发送 + agent_error 事件处理 + SSE/API Token 注入 | ✅ 已完成 |
+| 3 | AI 模型头像模糊匹配 | ✅ 已完成（补丁包） |
+| 4 | UI 丝滑度 + 过渡动画 | ✅ 已完成（补丁包） |
+| 5 | 原生弹窗替换为自定义 Modal | ✅ 已完成 |
+| 6 | UserAvatar 显示真实图片 + settings.tsx 头像展示 | ✅ 已完成 |
+| 7 | 单用户认证流程 | ✅ 已完成（补丁包） |
+| 8 | 键盘遮挡修复（memory.tsx + agents.tsx） | ✅ 已完成 |
+| 9 | 加载页优化 | ✅ 已完成（补丁包） |
+| 10 | 创作者信息 | ✅ 已完成（补丁包） |
+| 11 | 安全漏洞：所有路由添加 JWT 鉴权 | ✅ 已完成 |
+| 12 | Markdown 渲染 + 长按复制 | ✅ 已完成 |
+| 13 | 离线状态检测 + 提示 | ✅ 已完成 |
+| 14 | 多语言统一（Heartbeat Dashboard → 心跳监控面板，Embedding → 向量引擎） | ✅ 已完成 |
+| 15 | — | N/A |
+| 16 | 会话切换抽屉 | ✅ 已完成 |
+| 17 | ErrorBoundary 错误边界 | ✅ 已完成 |
+| 18 | FlatList 性能参数 + SIZE_MAP 复用 | ✅ 已完成 |
+
+### 新增依赖
+- `react-native-markdown-display` — Markdown 渲染
+- `@react-native-community/netinfo` — 网络状态检测
+- `expo-clipboard` — 剪贴板操作

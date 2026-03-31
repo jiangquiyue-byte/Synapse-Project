@@ -1,3 +1,5 @@
+from app.core.auth import get_current_user
+from fastapi import Depends
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -12,7 +14,7 @@ from app.models.database import (
     update_session_title,
 )
 
-router = APIRouter(prefix="/api/state", tags=["state"])
+router = APIRouter(prefix="/api/state", tags=["state"], dependencies=[Depends(get_current_user)])
 
 
 class SessionCreateRequest(BaseModel):

@@ -2,8 +2,19 @@ import { useAppStore } from '../stores/useAppStore';
 
 const DEFAULT_BACKEND_URL = 'https://synapse-project-seven.vercel.app';
 
+const getToken = () => useAppStore.getState().authToken;
+
 const getBaseUrl = () => {
   return useAppStore.getState().backendUrl || DEFAULT_BACKEND_URL;
+};
+
+/** 生成带 Authorization 的 headers */
+const authHeaders = (extra?: Record<string, string>): Record<string, string> => {
+  const token = getToken();
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extra,
+  };
 };
 
 /**
@@ -23,20 +34,20 @@ async function safeJson(res: Response): Promise<any> {
 
 export const api = {
   health: async () => {
-    const res = await fetch(`${getBaseUrl()}/health`);
+    const res = await fetch(`${getBaseUrl()}/health`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   // State persistence
   listSessions: async () => {
-    const res = await fetch(`${getBaseUrl()}/api/state/sessions`);
+    const res = await fetch(`${getBaseUrl()}/api/state/sessions`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   createSession: async (sessionId: string, title = '新会话') => {
     const res = await fetch(`${getBaseUrl()}/api/state/sessions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ session_id: sessionId, title }),
     });
     return safeJson(res);
@@ -45,7 +56,7 @@ export const api = {
   renameSession: async (sessionId: string, title: string) => {
     const res = await fetch(`${getBaseUrl()}/api/state/sessions/${sessionId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ title }),
     });
     return safeJson(res);
@@ -54,24 +65,25 @@ export const api = {
   deleteSession: async (sessionId: string) => {
     const res = await fetch(`${getBaseUrl()}/api/state/sessions/${sessionId}`, {
       method: 'DELETE',
+      headers: authHeaders(),
     });
     return safeJson(res);
   },
 
   listConfigs: async () => {
-    const res = await fetch(`${getBaseUrl()}/api/state/configs`);
+    const res = await fetch(`${getBaseUrl()}/api/state/configs`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   getConfig: async (key: string) => {
-    const res = await fetch(`${getBaseUrl()}/api/state/configs/${key}`);
+    const res = await fetch(`${getBaseUrl()}/api/state/configs/${key}`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   setConfig: async (key: string, value: Record<string, any>) => {
     const res = await fetch(`${getBaseUrl()}/api/state/configs/${key}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ value }),
     });
     return safeJson(res);
@@ -79,14 +91,14 @@ export const api = {
 
   // Agents
   listAgents: async () => {
-    const res = await fetch(`${getBaseUrl()}/api/agents/`);
+    const res = await fetch(`${getBaseUrl()}/api/agents/`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   createAgent: async (agent: any) => {
     const res = await fetch(`${getBaseUrl()}/api/agents/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(agent),
     });
     return safeJson(res);
@@ -95,24 +107,26 @@ export const api = {
   deleteAgent: async (id: string) => {
     const res = await fetch(`${getBaseUrl()}/api/agents/${id}`, {
       method: 'DELETE',
+      headers: authHeaders(),
     });
     return safeJson(res);
   },
 
   // Prompt templates / workflows
   listPrompts: async () => {
-    const res = await fetch(`${getBaseUrl()}/api/workflows/prompts`);
+    const res = await fetch(`${getBaseUrl()}/api/workflows/prompts`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   listWorkflows: async () => {
-    const res = await fetch(`${getBaseUrl()}/api/workflows/templates`);
+    const res = await fetch(`${getBaseUrl()}/api/workflows/templates`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   applyWorkflow: async (templateId: string) => {
     const res = await fetch(`${getBaseUrl()}/api/workflows/templates/${templateId}/apply`, {
       method: 'POST',
+      headers: authHeaders(),
     });
     return safeJson(res);
   },
@@ -123,7 +137,7 @@ export const api = {
     if (sessionId) params.set('session_id', sessionId);
     params.set('limit', String(limit));
     const qs = params.toString();
-    const res = await fetch(`${getBaseUrl()}/api/memory${qs ? `?${qs}` : ''}`);
+    const res = await fetch(`${getBaseUrl()}/api/memory${qs ? `?${qs}` : ''}`, { headers: authHeaders() });
     return safeJson(res);
   },
 
@@ -138,7 +152,7 @@ export const api = {
       params.set('include_current_session', String(options.includeCurrentSession));
     }
     if (options?.limit) params.set('limit', String(options.limit));
-    const res = await fetch(`${getBaseUrl()}/api/memory/search?${params.toString()}`);
+    const res = await fetch(`${getBaseUrl()}/api/memory/search?${params.toString()}`, { headers: authHeaders() });
     return safeJson(res);
   },
 
@@ -153,12 +167,12 @@ export const api = {
       params.set('include_current_session', String(options.includeCurrentSession));
     }
     if (options?.limit) params.set('limit', String(options.limit));
-    const res = await fetch(`${getBaseUrl()}/api/memory/context?${params.toString()}`);
+    const res = await fetch(`${getBaseUrl()}/api/memory/context?${params.toString()}`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   getSessionMemory: async (sessionId: string, limit = 50) => {
-    const res = await fetch(`${getBaseUrl()}/api/memory/${encodeURIComponent(sessionId)}?limit=${limit}`);
+    const res = await fetch(`${getBaseUrl()}/api/memory/${encodeURIComponent(sessionId)}?limit=${limit}`, { headers: authHeaders() });
     return safeJson(res);
   },
 
@@ -173,6 +187,7 @@ export const api = {
     formData.append('session_id', sessionId);
     const res = await fetch(`${getBaseUrl()}/api/upload/`, {
       method: 'POST',
+      headers: authHeaders(),
       body: formData,
     });
     return safeJson(res);
@@ -181,20 +196,20 @@ export const api = {
   queryDocuments: async (sessionId: string, query: string) => {
     const res = await fetch(`${getBaseUrl()}/api/upload/query`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ session_id: sessionId, query }),
     });
     return safeJson(res);
   },
 
   listDocuments: async (sessionId: string) => {
-    const res = await fetch(`${getBaseUrl()}/api/upload/documents/${sessionId}`);
+    const res = await fetch(`${getBaseUrl()}/api/upload/documents/${sessionId}`, { headers: authHeaders() });
     return safeJson(res);
   },
 
   // Chat / export
   getChatHistory: async (sessionId: string) => {
-    const res = await fetch(`${getBaseUrl()}/api/chat/history/${sessionId}`);
+    const res = await fetch(`${getBaseUrl()}/api/chat/history/${sessionId}`, { headers: authHeaders() });
     return safeJson(res);
   },
 
@@ -208,10 +223,11 @@ export const api = {
 
   // Billing
   getBillingStats: async () => {
-    const res = await fetch(`${getBaseUrl()}/api/state/billing/stats`);
+    const res = await fetch(`${getBaseUrl()}/api/state/billing/stats`, { headers: authHeaders() });
     return safeJson(res);
   },
-  // Auth
+
+  // Auth — 登录不需要传 token
   login: async (username: string, password: string) => {
     const res = await fetch(`${getBaseUrl()}/api/auth/login`, {
       method: 'POST',
@@ -220,6 +236,7 @@ export const api = {
     });
     return safeJson(res);
   },
+
   verifyToken: async (token: string) => {
     const res = await fetch(`${getBaseUrl()}/api/auth/verify`, {
       method: 'POST',
@@ -227,6 +244,7 @@ export const api = {
     });
     return safeJson(res);
   },
+
   // Test agent connection
   testAgentConnection: async (params: {
     provider: string;
@@ -237,7 +255,7 @@ export const api = {
   }) => {
     const res = await fetch(`${getBaseUrl()}/api/agents/test`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(params),
     });
     return safeJson(res);

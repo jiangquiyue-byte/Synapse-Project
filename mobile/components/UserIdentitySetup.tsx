@@ -3,13 +3,13 @@
  * 强制用户身份设置 — 新用户必须设置昵称 + 头像后方可进入会话
  * 支持：文字头像 / 上传图片 / 自定义颜色
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Modal, ScrollView, Alert, Platform, Image,
+  Modal, ScrollView, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import Svg, { Circle, Path, Rect, Line } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 export interface UserIdentity {
   nickname: string;
@@ -41,7 +41,7 @@ export default function UserIdentitySetup({ visible, onComplete }: Props) {
   const pickCustomAvatar = async () => {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) { Alert.alert('权限', '需要相册访问权限'); return; }
+      if (!perm.granted) { alert('需要相册访问权限'); return; }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
@@ -53,17 +53,17 @@ export default function UserIdentitySetup({ visible, onComplete }: Props) {
         setSelectedEmoji('');
       }
     } catch (e: any) {
-      Alert.alert('错误', e.message);
+      alert(e.message);
     }
   };
 
   const handleNicknameNext = () => {
     if (!nickname.trim()) {
-      Alert.alert('请输入昵称', '昵称不能为空，这将是你在 Synapse 中的身份标识。');
+      alert('昵称不能为空，这将是你在 Synapse 中的身份标识。');
       return;
     }
     if (nickname.trim().length > 16) {
-      Alert.alert('昵称过长', '昵称最多 16 个字符。');
+      alert('昵称最多 16 个字符。');
       return;
     }
     setStep('avatar');

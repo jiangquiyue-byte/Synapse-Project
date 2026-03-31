@@ -9,7 +9,7 @@ import Svg, {
   Rect, Text as SvgText, Defs, LinearGradient, Stop,
   ClipPath, Mask, RadialGradient,
 } from 'react-native-svg';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 
 export type ModelAvatarSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -341,6 +341,20 @@ export function UserAvatar({
   size?: number;
   avatarUri?: string;
 }) {
+  if (avatarUri) {
+    return (
+      <Image 
+        source={{ uri: avatarUri }} 
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 1.5,
+          borderColor: '#555',
+        }} 
+      />
+    );
+  }
   const initial = (nickname || 'U')[0].toUpperCase();
   return (
     <View style={{
@@ -518,7 +532,8 @@ export const LMSYS_TOP20 = [
  * ModelAvatar — 根据模型名自动匹配官方 SVG 图标的统一入口组件
  * 供 index.tsx 和 agents.tsx 使用
  */
-export function ModelAvatar({ model, size = 36 }: { model: string; size?: number }) {
-  return getModelAvatar(model, size);
+export function ModelAvatar({ model, size = 'md' }: { model: string; size?: number | ModelAvatarSize }) {
+  const resolvedSize = typeof size === 'string' ? SIZE_MAP[size as ModelAvatarSize] ?? 36 : size;
+  return getModelAvatar(model, resolvedSize);
 }
 

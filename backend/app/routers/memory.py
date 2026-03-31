@@ -1,3 +1,5 @@
+from app.core.auth import get_current_user
+from fastapi import Depends
 from typing import Optional
 
 from fastapi import APIRouter, Query
@@ -5,7 +7,7 @@ from fastapi import APIRouter, Query
 from app.services.embedding_service import get_embedding_backend_label
 from app.services.memory_service import build_memory_context, list_memories, semantic_search_memories
 
-router = APIRouter(prefix="/api/memory", tags=["memory"])
+router = APIRouter(prefix="/api/memory", tags=["memory"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("")

@@ -14,9 +14,12 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import NetInfo from '@react-native-community/netinfo';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import Markdown from 'react-native-markdown-display';
 import { useAppStore, Message, DiscussionMode } from '../../stores/useAppStore';
 import { SSEClient } from '../../services/sseClient';
 import { api } from '../../services/api';
@@ -139,12 +142,21 @@ export default function ChatScreen() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showAtMenu, setShowAtMenu] = useState(false);
   const [showIdentitySetup, setShowIdentitySetup] = useState(!hasCompletedIdentitySetup);
+  const [isOffline, setIsOffline] = useState(false);
+  const [showSessionDrawer, setShowSessionDrawer] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const sseClient = useRef(new SSEClient());
 
   useEffect(() => {
     if (!hasCompletedIdentitySetup) setShowIdentitySetup(true);
   }, [hasCompletedIdentitySetup]);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(state.isConnected === false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const hasBackend = () => !!(backendUrl || api.getChatStreamUrl());
 
@@ -328,6 +340,19 @@ export default function ChatScreen() {
             addCost(data.total_cost_usd || 0);
           } else if (event === 'error' && data) {
             addMessage({ id: 'err_' + Date.now(), role: 'system', content: `错误: ${data.error || data.message || '未知'}`, timestamp: new Date().toISOString() });
+          } else if (event === 'agent_error' && data) {
+            // 确保显示后端详细错误
+            const messageId = data.message_id;
+            if (messageId) {
+              patchMessage(messageId, {
+                role: data.agent_id || 'agent',
+                agentName: data.agent_name,
+                content: data.error || '未知错误',
+                isStreaming: false,
+              });
+            } else {
+              addMessage({ id: 'err_' + Date.now(), role: 'system', content: `[${data.agent_name || 'Agent'} 错误]: ${data.error}`, timestamp: new Date().toISOString() });
+            }
           }
         },
         (err) => { addMessage({ id: 'err_' + Date.now(), role: 'system', content: `连接错误: ${err.message}`, timestamp: new Date().toISOString() }); },
@@ -394,15 +419,28 @@ export default function ChatScreen() {
         )}
 
         {/* Message bubble */}
-        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAgent]}>
+        <Pressable 
+          style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAgent]}
+          onLongPress={() => {
+            Clipboard.setStringAsync(item.content);
+            alert('已复制消息内容');
+          }}
+        >
           {!isUser && <Text style={styles.agentLabel}>{item.agentName}</Text>}
-          <Text style={[styles.msgText, isUser && styles.msgTextUser]}>{item.content}</Text>
+          <Markdown
+            style={{
+              body: [styles.msgText, isUser && styles.msgTextUser],
+              paragraph: { marginTop: 0, marginBottom: 0 },
+            }}
+          >
+            {item.content}
+          </Markdown>
           {item.tokenCount ? (
             <Text style={styles.tokenText}>
               {item.tokenCount} tokens · ${item.costUsd?.toFixed(6)} / ¥{costCny.toFixed(5)}
             </Text>
           ) : null}
-        </View>
+        </Pressable>
 
         {/* Right: User custom avatar */}
         {isUser && (
@@ -437,12 +475,17 @@ export default function ChatScreen() {
       />
 
       <View style={styles.topActionBar}>
-        <View style={styles.topActionMeta}>
-          <Text style={styles.topActionTitle}>当前会话</Text>
+        <TouchableOpacity style={styles.topActionMeta} onPress={() => setShowSessionDrawer(true)}>
+          <Text style={styles.topActionTitle}>当前会话 ▾</Text>
           <Text style={styles.topActionSubtitle}>
             {userNickname ? `${userNickname} · ` : ''}{tavilySearchEnabled ? '联网搜索已启用' : '本地对话模式'}
           </Text>
-        </View>
+        </TouchableOpacity>
+        {isOffline && (
+          <View style={{ backgroundColor: '#FF3B30', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginRight: 8 }}>
+            <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>离线</Text>
+          </View>
+        )}
         <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExportMenu(true)}>
           <ExportDialogIcon size={15} color={ICON_TONES.primary} strokeWidth={1.05} />
           <Text style={styles.exportBtnText}>导出</Text>
@@ -457,6 +500,10 @@ export default function ChatScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messageList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <View style={styles.emptyLogo}>
@@ -575,6 +622,26 @@ export default function ChatScreen() {
               })}
             </View>
           </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Session Drawer */}
+      <Modal visible={showSessionDrawer} transparent animationType="slide">
+        <Pressable style={styles.menuOverlay} onPress={() => setShowSessionDrawer(false)}>
+          <View style={[styles.menuContainer, { width: '80%', height: '50%', backgroundColor: 'white', padding: 20, borderRadius: 16 }]}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>历史会话</Text>
+            <ScrollView>
+              <TouchableOpacity style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }} onPress={() => { useAppStore.getState().createNewSession(); setShowSessionDrawer(false); }}>
+                <Text style={{ color: '#111', fontWeight: 'bold' }}>+ 新建会话</Text>
+              </TouchableOpacity>
+              {useAppStore.getState().sessions?.map(s => (
+                <TouchableOpacity key={s.id} style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: s.id === currentSessionId ? '#f0f0f0' : 'transparent' }} onPress={() => { useAppStore.getState().switchSession(s.id); setShowSessionDrawer(false); }}>
+                  <Text>{s.name || '未命名会话'}</Text>
+                  <Text style={{ fontSize: 10, color: '#999' }}>{new Date(s.updatedAt).toLocaleString()}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </Pressable>
       </Modal>
 

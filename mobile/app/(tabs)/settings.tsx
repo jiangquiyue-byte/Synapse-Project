@@ -21,6 +21,7 @@ import {
 import { useAppStore } from '../../stores/useAppStore';
 import { api } from '../../services/api';
 import UserIdentitySetup from '../../components/UserIdentitySetup';
+import { UserAvatar } from '../../components/ModelAvatars';
 
 interface HealthData {
   status: string;
@@ -93,7 +94,7 @@ function HeartbeatDashboard() {
       <View style={styles.dashHeader}>
         <View style={styles.dashTitleRow}>
           <View style={[styles.statusDot, { backgroundColor: health?.status === 'alive' ? '#22C55E' : '#EF4444' }]} />
-          <Text style={styles.dashTitle}>Heartbeat Dashboard</Text>
+          <Text style={styles.dashTitle}>心跳监控面板</Text>
         </View>
         <TouchableOpacity onPress={fetchHealth} disabled={loading}>
           {loading ? (
@@ -143,7 +144,7 @@ function HeartbeatDashboard() {
         </View>
         <View style={styles.metricCard}>
           <Text style={[styles.metricValue, { fontSize: 10 }]}>{health?.embedding_backend ? health.embedding_backend.split('-')[0] : '--'}</Text>
-          <Text style={styles.metricLabel}>Embedding</Text>
+          <Text style={styles.metricLabel}>向量引擎</Text>
         </View>
         <View style={styles.metricCard}>
           <Text style={styles.metricValue}>{health?.database?.includes('pgvector') ? 'pgvec' : 'SQLite'}</Text>
@@ -188,6 +189,7 @@ export default function SettingsScreen() {
     setTavilySearchEnabled,
     userNickname,
     userAvatarColor,
+    userAvatarUri,
     hasCompletedIdentitySetup,
     setUserIdentity,
     totalCostUsd,
@@ -247,12 +249,12 @@ export default function SettingsScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionLabel}>用户身份</Text>
           <View style={styles.identityRow}>
-            <View style={[styles.identityAvatar, { backgroundColor: userAvatarColor || '#1A1A2E' }]}>
-              <Text style={styles.identityAvatarText}>
-                {userNickname ? userNickname[0].toUpperCase() : 'U'}
-              </Text>
-            </View>
-            <View style={styles.identityInfo}>
+            <UserAvatar 
+              nickname={userNickname || 'U'} 
+              avatarUri={userAvatarUri} 
+              size={48} 
+            />
+            <View style={[styles.identityInfo, { marginLeft: 12 }]}>
               <Text style={styles.identityName}>{userNickname || '未设置昵称'}</Text>
               <Text style={styles.identityStatus}>
                 {hasCompletedIdentitySetup ? '身份已验证 ✓' : '请完善身份信息'}
