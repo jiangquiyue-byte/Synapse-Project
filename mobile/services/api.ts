@@ -211,4 +211,35 @@ export const api = {
     const res = await fetch(`${getBaseUrl()}/api/state/billing/stats`);
     return safeJson(res);
   },
+  // Auth
+  login: async (username: string, password: string) => {
+    const res = await fetch(`${getBaseUrl()}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    return safeJson(res);
+  },
+  verifyToken: async (token: string) => {
+    const res = await fetch(`${getBaseUrl()}/api/auth/verify`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    return safeJson(res);
+  },
+  // Test agent connection
+  testAgentConnection: async (params: {
+    provider: string;
+    model: string;
+    api_key: string;
+    custom_base_url?: string;
+    agent_id?: string;
+  }) => {
+    const res = await fetch(`${getBaseUrl()}/api/agents/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return safeJson(res);
+  },
 };

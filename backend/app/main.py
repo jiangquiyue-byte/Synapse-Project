@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.models.database import close_db, init_db
-from app.routers import agents, chat, export, memory, state, upload, workflows
+from app.routers import agents, auth, chat, export, memory, state, upload, workflows
 from app.services.embedding_service import get_embedding_backend_label
 
 settings = get_settings()
@@ -67,6 +67,7 @@ async def validation_error_handler(request: Request, exc):
     )
 
 
+app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(agents.router)
 app.include_router(upload.router)

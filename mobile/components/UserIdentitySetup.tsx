@@ -8,6 +8,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Modal, ScrollView, Alert, Platform, Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import Svg, { Circle, Path, Rect, Line } from 'react-native-svg';
 
 export interface UserIdentity {
@@ -34,7 +35,27 @@ export default function UserIdentitySetup({ visible, onComplete }: Props) {
   const [nickname, setNickname] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
   const [selectedEmoji, setSelectedEmoji] = useState('');
+  const [customAvatarUri, setCustomAvatarUri] = useState('');
   const [step, setStep] = useState<'nickname' | 'avatar'>('nickname');
+
+  const pickCustomAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) { Alert.alert('权限', '需要相册访问权限'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.length) {
+        setCustomAvatarUri(result.assets[0].uri);
+        setSelectedEmoji('');
+      }
+    } catch (e: any) {
+      Alert.alert('错误', e.message);
+    }
+  };
 
   const handleNicknameNext = () => {
     if (!nickname.trim()) {
@@ -51,9 +72,9 @@ export default function UserIdentitySetup({ visible, onComplete }: Props) {
   const handleComplete = () => {
     onComplete({
       nickname: nickname.trim(),
-      avatarType: 'color',
+      avatarType: customAvatarUri ? 'custom' : 'color',
       avatarColor: selectedColor,
-      avatarUri: selectedEmoji || undefined,
+      avatarUri: customAvatarUri || selectedEmoji || undefined,
     });
   };
 
@@ -109,15 +130,28 @@ export default function UserIdentitySetup({ visible, onComplete }: Props) {
     <View style={styles.stepContainer}>
       {/* 预览 */}
       <View style={styles.avatarPreviewWrap}>
-        <View style={[styles.avatarPreview, { backgroundColor: selectedColor }]}>
-          {selectedEmoji ? (
-            <Text style={styles.avatarEmoji}>{selectedEmoji}</Text>
-          ) : (
-            <Text style={styles.avatarInitial}>{nickname[0]?.toUpperCase() || '?'}</Text>
-          )}
-        </View>
+        {customAvatarUri ? (
+          <Image source={{ uri: customAvatarUri }} style={styles.avatarPreviewImg} />
+        ) : (
+          <View style={[styles.avatarPreview, { backgroundColor: selectedColor }]}>
+            {selectedEmoji ? (
+              <Text style={styles.avatarEmoji}>{selectedEmoji}</Text>
+            ) : (
+              <Text style={styles.avatarInitial}>{nickname[0]?.toUpperCase() || '?'}</Text>
+            )}
+          </View>
+        )}
         <Text style={styles.avatarPreviewName}>{nickname}</Text>
       </View>
+
+      <TouchableOpacity style={styles.pickPhotoBtn} onPress={pickCustomAvatar}>
+        <Text style={styles.pickPhotoBtnText}>{customAvatarUri ? '更换自定义头像' : '从相册选择头像'}</Text>
+      </TouchableOpacity>
+      {customAvatarUri ? (
+        <TouchableOpacity style={styles.clearPhotoBtn} onPress={() => setCustomAvatarUri('')}>
+          <Text style={styles.clearPhotoBtnText}>移除自定义头像</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <Text style={styles.sectionLabel}>选择颜色</Text>
       <View style={styles.colorGrid}>
@@ -305,6 +339,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  avatarPreviewImg: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    marginBottom: 10,
+  },
   avatarInitial: {
     fontSize: 34,
     fontWeight: '700',
@@ -385,6 +425,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 32,
     paddingTop: 16,
+  },
+  pickPhotoBtn: {
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pickPhotoBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  clearPhotoBtn: {
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  clearPhotoBtnText: {
+    fontSize: 12,
+    color: '#999',
   },
   brandText: {
     fontSize: 12,

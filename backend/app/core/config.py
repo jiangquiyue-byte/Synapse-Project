@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     EMBEDDING_BACKEND: str = "huggingface"
     LOCAL_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
 
+    # Single-user auth
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "synapse2025"
+    JWT_SECRET: str = "synapse-jwt-secret-key-2025-change-in-prod"
+
     # Retrieval tuning
     MEMORY_TOP_K: int = 6
     PGVECTOR_DIMENSION: int = 1536

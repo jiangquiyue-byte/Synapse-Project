@@ -194,12 +194,22 @@ async def _invoke_agent_content(cfg: dict, state: ConversationState) -> str:
 
         response = await llm.ainvoke(llm_messages)
         return _normalize_text(getattr(response, "content", response))
-    except Exception:
-        try:
-            response = await llm.ainvoke(llm_messages)
-            return _normalize_text(getattr(response, "content", response))
-        except Exception as exc:
-            return f"[LLM 调用失败: {str(exc)}]"
+    except Exception as exc:
+        import traceback
+        err_msg = str(exc)
+        err_detail = traceback.format_exc()
+        if "AuthenticationError" in err_detail or "401" in err_msg or "Incorrect API key" in err_msg:
+            return f"[API Key 认证失败] 请检查 API Key 是否正确。错误: {err_msg}"
+        elif "NotFoundError" in err_detail or "404" in err_msg or "model_not_found" in err_msg:
+            return f"[模型不存在] 请检查模型名称是否正确（如 deepseek-chat 而非 deepseek-v3）。错误: {err_msg}"
+        elif "RateLimitError" in err_detail or "429" in err_msg:
+            return f"[速率限制] API 调用频率超限，请稍后重试。错误: {err_msg}"
+        elif "ConnectionError" in err_detail or "connect" in err_msg.lower() or "Connection" in err_msg:
+            return f"[网络连接失败] 请检查 API Base URL 是否正确。错误: {err_msg}"
+        elif "ValueError" in err_detail and "API Key" in err_msg:
+            return f"[配置错误] {err_msg}"
+        else:
+            return f"[LLM 调用失败] {err_msg}"
 
 
 async def _emit_text_as_tokens(
@@ -414,8 +424,34 @@ async def _stream_agent_response(cfg: dict, state: ConversationState) -> AsyncGe
                         "content": content,
                     },
                 }
-    except Exception:
-        fallback = await _invoke_agent_content(cfg, state)
+    except Exception as exc:
+        import traceback
+        err_msg = str(exc)
+        err_detail = traceback.format_exc()
+        # 生成友好错误信息并通过 SSE 发送给前端
+        if "AuthenticationError" in err_detail or "401" in err_msg or "Incorrect API key" in err_msg:
+            friendly = f"API Key 认证失败：请在「成员」页编辑此 Agent，重新填写正确的 API Key。({err_msg})"
+        elif "NotFoundError" in err_detail or "404" in err_msg or "model_not_found" in err_msg:
+            friendly = f"模型不存在：请检查模型名称是否正确（DeepSeek 应填 deepseek-chat，OpenAI 应填 gpt-4o）。({err_msg})"
+        elif "RateLimitError" in err_detail or "429" in err_msg:
+            friendly = f"API 速率限制，请稍后重试。({err_msg})"
+        elif "ConnectionError" in err_detail or "connect" in err_msg.lower():
+            friendly = f"网络连接失败：请检查 API Base URL 是否正确。({err_msg})"
+        elif "ValueError" in err_detail and "API Key" in err_msg:
+            friendly = f"配置错误：{err_msg}"
+        else:
+            friendly = f"LLM 调用失败：{err_msg}"
+        # 发送错误事件给前端
+        yield {
+            "event": "agent_error",
+            "data": {
+                "message_id": message_id,
+                "agent_id": cfg["id"],
+                "agent_name": cfg["name"],
+                "error": friendly,
+            },
+        }
+        fallback = f"[{friendly}]"
         async for event in _emit_text_as_tokens(
             fallback,
             message_id=message_id,

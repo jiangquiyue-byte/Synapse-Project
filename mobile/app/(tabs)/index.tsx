@@ -9,7 +9,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Linking,
   Modal,
   Pressable,
@@ -194,7 +193,7 @@ export default function ChatScreen() {
         addMessage({ id: 'sys_' + Date.now(), role: 'system', content: `上传失败: ${e.message}`, timestamp: new Date().toISOString() });
       }
     } catch (e: any) {
-      Alert.alert('错误', e.message);
+      addMessage({ id: 'sys_' + Date.now(), role: 'system', content: '错误: ' + e.message, timestamp: new Date().toISOString() });
     } finally {
       setUploadingDoc(false);
     }
@@ -204,7 +203,7 @@ export default function ChatScreen() {
     setShowPlusMenu(false);
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) { Alert.alert('权限', '需要相册访问权限'); return; }
+      if (!perm.granted) { addMessage({ id: 'sys_' + Date.now(), role: 'system', content: '需要相册访问权限', timestamp: new Date().toISOString() }); return; }
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
@@ -215,14 +214,14 @@ export default function ChatScreen() {
         setSelectedImage({ uri: asset.uri, base64: b64 });
       }
     } catch (e: any) {
-      Alert.alert('错误', e.message);
+      addMessage({ id: 'sys_' + Date.now(), role: 'system', content: '错误: ' + e.message, timestamp: new Date().toISOString() });
     }
   }, []);
 
   const handleExport = useCallback(async (format: 'markdown' | 'pdf' | 'json') => {
     setShowExportMenu(false);
     if (!currentSessionId) {
-      Alert.alert('提示', '当前没有可导出的会话');
+      addMessage({ id: 'sys_' + Date.now(), role: 'system', content: '当前没有可导出的会话', timestamp: new Date().toISOString() });
       return;
     }
 
@@ -236,12 +235,12 @@ export default function ChatScreen() {
     try {
       const supported = await Linking.canOpenURL(url);
       if (!supported) {
-        Alert.alert('导出失败', '当前设备无法打开导出链接');
+        addMessage({ id: 'sys_' + Date.now(), role: 'system', content: '导出失败: 当前设备无法打开链接', timestamp: new Date().toISOString() });
         return;
       }
       await Linking.openURL(url);
     } catch (error: any) {
-      Alert.alert('导出失败', error?.message || '无法打开导出链接');
+      addMessage({ id: 'sys_' + Date.now(), role: 'system', content: '导出失败: ' + (error?.message || '无法打开链接'), timestamp: new Date().toISOString() });
     }
   }, [currentSessionId]);
 
@@ -427,7 +426,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}>
       {/* Identity Setup Modal — 强制门控 */}
       <UserIdentitySetup
         visible={showIdentitySetup}

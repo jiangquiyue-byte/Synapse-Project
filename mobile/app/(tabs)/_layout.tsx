@@ -39,16 +39,20 @@ function TabIcon({ name, focused }: { name: 'chat' | 'agents' | 'memory' | 'work
 export default function TabLayout() {
   const initializeApp = useAppStore((state) => state.initializeApp);
   const isBootstrapping = useAppStore((state) => state.isBootstrapping);
+  const hasHydrated = useAppStore((state) => state._hasHydrated);
 
   useEffect(() => {
-    void initializeApp();
-  }, [initializeApp]);
+    if (hasHydrated) {
+      void initializeApp();
+    }
+  }, [initializeApp, hasHydrated]);
 
-  if (isBootstrapping) {
+  if (!hasHydrated || isBootstrapping) {
     return (
       <View style={styles.loadingScreen}>
-        <SynapsePulse size={28} strokeWidth={1.35} />
+        <SynapsePulse size={56} strokeWidth={1.35} />
         <Text style={styles.loadingText}>正在同步会话与配置...</Text>
+        <Text style={styles.loadingBrand}>S Y N A P S E</Text>
       </View>
     );
   }
@@ -130,9 +134,16 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   loadingText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6F6F6F',
     letterSpacing: 0.4,
+  },
+  loadingBrand: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 6,
+    color: '#CCC',
+    marginTop: 12,
   },
   icon: {
     width: 34,

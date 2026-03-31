@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { api } from '../services/api';
 
@@ -15,6 +17,7 @@ export interface Agent {
   avatarColor: string;
   supportsVision: boolean;
   customBaseUrl: string;
+  customAvatarUri?: string;
 }
 
 export interface Message {
@@ -55,7 +58,10 @@ interface AppState {
   userAvatarColor: string;
   userAvatarUri: string;
   hasCompletedIdentitySetup: boolean;
+  authToken: string;
 
+  _hasHydrated: boolean;
+  setHasHydrated: (v: boolean) => void;
   initializeApp: () => Promise<void>;
   createNewSession: (title?: string) => Promise<string>;
   switchSession: (sessionId: string) => Promise<void>;
@@ -80,6 +86,8 @@ interface AppState {
   setTavilySearchEnabled: (enabled: boolean) => Promise<void>;
   addCost: (cost: number) => void;
   setUserIdentity: (nickname: string, avatarColor: string, avatarUri?: string) => void;
+  setAuthToken: (token: string) => void;
+  clearAuthToken: () => void;
 }
 
 const makeSessionId = () => `session_${Date.now()}`;
@@ -109,6 +117,7 @@ const normalizeAgent = (agent: any): Agent => ({
   avatarColor: agent.avatar_color || agent.avatarColor || '#F0F0F0',
   supportsVision: agent.supports_vision ?? agent.supportsVision ?? false,
   customBaseUrl: agent.custom_base_url || agent.customBaseUrl || '',
+  customAvatarUri: agent.custom_avatar_uri || agent.customAvatarUri || '',
 });
 
 const normalizeSession = (session: any): SessionSummary => ({
@@ -118,168 +127,197 @@ const normalizeSession = (session: any): SessionSummary => ({
   updatedAt: session.updated_at ?? session.updatedAt,
 });
 
-export const useAppStore = create<AppState>((set, get) => ({
-  agents: [],
-  messages: [],
-  sessions: [],
-  currentSessionId: makeSessionId(),
-  backendUrl: '',
-  isLoading: false,
-  isBootstrapping: false,
-  discussionMode: 'sequential',
-  maxDebateRounds: 3,
-  targetAgentId: null,
-  totalCostUsd: 0,
-  tavilySearchEnabled: false,
-  userNickname: '',
-  userAvatarColor: '#1A1A2E',
-  userAvatarUri: '',
-  hasCompletedIdentitySetup: false,
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      _hasHydrated: false,
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
+      agents: [],
+      messages: [],
+      sessions: [],
+      currentSessionId: makeSessionId(),
+      backendUrl: '',
+      isLoading: false,
+      isBootstrapping: false,
+      discussionMode: 'sequential',
+      maxDebateRounds: 3,
+      targetAgentId: null,
+      totalCostUsd: 0,
+      tavilySearchEnabled: false,
+      userNickname: '',
+      userAvatarColor: '#1A1A2E',
+      userAvatarUri: '',
+      hasCompletedIdentitySetup: false,
+      authToken: '',
 
-  initializeApp: async () => {
-    if (get().isBootstrapping) return;
-    set({ isBootstrapping: true });
+      initializeApp: async () => {
+        if (get().isBootstrapping) return;
+        set({ isBootstrapping: true });
 
-    try {
-      const [configsRes, sessionsRes, agentsRes] = await Promise.allSettled([
-        api.listConfigs(),
-        api.listSessions(),
-        api.listAgents(),
-      ]);
+        try {
+          const [configsRes, sessionsRes, agentsRes] = await Promise.allSettled([
+            api.listConfigs(),
+            api.listSessions(),
+            api.listAgents(),
+          ]);
 
-      let backendUrl = get().backendUrl;
-      let tavilySearchEnabled = get().tavilySearchEnabled;
+          let backendUrl = get().backendUrl;
+          let tavilySearchEnabled = get().tavilySearchEnabled;
 
-      if (configsRes.status === 'fulfilled' && Array.isArray(configsRes.value?.configs)) {
-        const configMap = new Map<string, any>();
-        configsRes.value.configs.forEach((item: any) => configMap.set(item.key, item.value));
-        backendUrl = configMap.get('backend_url')?.url || backendUrl;
-        tavilySearchEnabled = Boolean(configMap.get('tavily_search')?.enabled ?? tavilySearchEnabled);
-      }
+          if (configsRes.status === 'fulfilled' && Array.isArray(configsRes.value?.configs)) {
+            const configMap = new Map<string, any>();
+            configsRes.value.configs.forEach((item: any) => configMap.set(item.key, item.value));
+            backendUrl = configMap.get('backend_url')?.url || backendUrl;
+            tavilySearchEnabled = Boolean(configMap.get('tavily_search')?.enabled ?? tavilySearchEnabled);
+          }
 
-      const sessions =
-        sessionsRes.status === 'fulfilled' && Array.isArray(sessionsRes.value?.sessions)
-          ? sessionsRes.value.sessions.map(normalizeSession)
-          : [];
+          const sessions =
+            sessionsRes.status === 'fulfilled' && Array.isArray(sessionsRes.value?.sessions)
+              ? sessionsRes.value.sessions.map(normalizeSession)
+              : [];
 
-      const agents =
-        agentsRes.status === 'fulfilled' && Array.isArray(agentsRes.value?.agents)
-          ? agentsRes.value.agents.map(normalizeAgent)
-          : [];
+          const agents =
+            agentsRes.status === 'fulfilled' && Array.isArray(agentsRes.value?.agents)
+              ? agentsRes.value.agents.map(normalizeAgent)
+              : [];
 
-      let nextSessionId = get().currentSessionId;
-      if (sessions.length > 0) {
-        nextSessionId = sessions[0].id;
-      } else {
-        const createdId = makeSessionId();
-        await api.createSession(createdId, '新会话');
-        nextSessionId = createdId;
-      }
+          let nextSessionId = get().currentSessionId;
+          if (sessions.length > 0) {
+            nextSessionId = sessions[0].id;
+          } else {
+            const createdId = makeSessionId();
+            await api.createSession(createdId, '新会话');
+            nextSessionId = createdId;
+          }
 
-      set({
-        backendUrl,
-        tavilySearchEnabled,
-        sessions,
-        agents,
-        currentSessionId: nextSessionId,
-      });
+          set({
+            backendUrl,
+            tavilySearchEnabled,
+            sessions,
+            agents,
+            currentSessionId: nextSessionId,
+          });
 
-      if (sessions.length === 0) {
+          if (sessions.length === 0) {
+            await get().refreshSessions();
+          }
+          await get().loadMessages(nextSessionId);
+        } finally {
+          set({ isBootstrapping: false });
+        }
+      },
+
+      createNewSession: async (title = '新会话') => {
+        const sessionId = makeSessionId();
+        await api.createSession(sessionId, title);
         await get().refreshSessions();
-      }
-      await get().loadMessages(nextSessionId);
-    } finally {
-      set({ isBootstrapping: false });
-    }
-  },
+        set({ currentSessionId: sessionId, messages: [] });
+        return sessionId;
+      },
 
-  createNewSession: async (title = '新会话') => {
-    const sessionId = makeSessionId();
-    await api.createSession(sessionId, title);
-    await get().refreshSessions();
-    set({ currentSessionId: sessionId, messages: [] });
-    return sessionId;
-  },
+      switchSession: async (sessionId: string) => {
+        set({ currentSessionId: sessionId, messages: [] });
+        await get().loadMessages(sessionId);
+      },
 
-  switchSession: async (sessionId: string) => {
-    set({ currentSessionId: sessionId, messages: [] });
-    await get().loadMessages(sessionId);
-  },
+      refreshSessions: async () => {
+        const result = await api.listSessions();
+        if (Array.isArray(result?.sessions)) {
+          set({ sessions: result.sessions.map(normalizeSession) });
+        }
+      },
 
-  refreshSessions: async () => {
-    const result = await api.listSessions();
-    if (Array.isArray(result?.sessions)) {
-      set({ sessions: result.sessions.map(normalizeSession) });
-    }
-  },
+      refreshAgents: async () => {
+        const result = await api.listAgents();
+        if (Array.isArray(result?.agents)) {
+          set({ agents: result.agents.map(normalizeAgent) });
+        }
+      },
 
-  refreshAgents: async () => {
-    const result = await api.listAgents();
-    if (Array.isArray(result?.agents)) {
-      set({ agents: result.agents.map(normalizeAgent) });
-    }
-  },
+      loadMessages: async (sessionId: string) => {
+        const result = await api.getChatHistory(sessionId);
+        if (Array.isArray(result?.messages)) {
+          set({ messages: result.messages.map(normalizeMessage) });
+        } else {
+          set({ messages: [] });
+        }
+      },
 
-  loadMessages: async (sessionId: string) => {
-    const result = await api.getChatHistory(sessionId);
-    if (Array.isArray(result?.messages)) {
-      set({ messages: result.messages.map(normalizeMessage) });
-    } else {
-      set({ messages: [] });
-    }
-  },
+      addAgent: (agent) => set((s) => ({ agents: [...s.agents, agent] })),
+      removeAgent: (id) => set((s) => ({ agents: s.agents.filter((a) => a.id !== id) })),
+      updateAgent: (id, updates) =>
+        set((s) => ({
+          agents: s.agents.map((a) => (a.id === id ? { ...a, ...updates } : a)),
+        })),
 
-  addAgent: (agent) => set((s) => ({ agents: [...s.agents, agent] })),
-  removeAgent: (id) => set((s) => ({ agents: s.agents.filter((a) => a.id !== id) })),
-  updateAgent: (id, updates) =>
-    set((s) => ({
-      agents: s.agents.map((a) => (a.id === id ? { ...a, ...updates } : a)),
-    })),
+      addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+      upsertMessage: (msg) =>
+        set((s) => {
+          const idx = s.messages.findIndex((item) => item.id === msg.id);
+          if (idx === -1) {
+            return { messages: [...s.messages, msg] };
+          }
+          const next = [...s.messages];
+          next[idx] = { ...next[idx], ...msg };
+          return { messages: next };
+        }),
+      patchMessage: (id, patch) =>
+        set((s) => {
+          const idx = s.messages.findIndex((item) => item.id === id);
+          if (idx === -1) {
+            return {};
+          }
+          const next = [...s.messages];
+          next[idx] = { ...next[idx], ...patch };
+          return { messages: next };
+        }),
+      replaceMessages: (messages) => set({ messages }),
+      clearMessages: () => set({ messages: [] }),
 
-  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
-  upsertMessage: (msg) =>
-    set((s) => {
-      const idx = s.messages.findIndex((item) => item.id === msg.id);
-      if (idx === -1) {
-        return { messages: [...s.messages, msg] };
-      }
-      const next = [...s.messages];
-      next[idx] = { ...next[idx], ...msg };
-      return { messages: next };
+      setLoading: (loading) => set({ isLoading: loading }),
+      setDiscussionMode: (mode) => set({ discussionMode: mode }),
+      setTargetAgent: (id) => set({ targetAgentId: id }),
+
+      setBackendUrl: async (url) => {
+        const normalized = url.trim().replace(/\/$/, '');
+        set({ backendUrl: normalized });
+        try {
+          await api.setConfig('backend_url', { url: normalized });
+        } catch {}
+      },
+
+      setTavilySearchEnabled: async (enabled) => {
+        set({ tavilySearchEnabled: enabled });
+        try {
+          await api.setConfig('tavily_search', { enabled });
+        } catch {}
+      },
+
+      addCost: (cost) => set((s) => ({ totalCostUsd: s.totalCostUsd + cost })),
+      setUserIdentity: (nickname, avatarColor, avatarUri = '') =>
+        set({ userNickname: nickname, userAvatarColor: avatarColor, userAvatarUri: avatarUri, hasCompletedIdentitySetup: true }),
+
+      setAuthToken: (token: string) => set({ authToken: token }),
+      clearAuthToken: () => set({ authToken: '' }),
     }),
-  patchMessage: (id, patch) =>
-    set((s) => {
-      const idx = s.messages.findIndex((item) => item.id === id);
-      if (idx === -1) {
-        return {};
-      }
-      const next = [...s.messages];
-      next[idx] = { ...next[idx], ...patch };
-      return { messages: next };
-    }),
-  replaceMessages: (messages) => set({ messages }),
-  clearMessages: () => set({ messages: [] }),
-
-  setLoading: (loading) => set({ isLoading: loading }),
-  setDiscussionMode: (mode) => set({ discussionMode: mode }),
-  setTargetAgent: (id) => set({ targetAgentId: id }),
-
-  setBackendUrl: async (url) => {
-    const normalized = url.trim().replace(/\/$/, '');
-    set({ backendUrl: normalized });
-    try {
-      await api.setConfig('backend_url', { url: normalized });
-    } catch {}
-  },
-
-  setTavilySearchEnabled: async (enabled) => {
-    set({ tavilySearchEnabled: enabled });
-    try {
-      await api.setConfig('tavily_search', { enabled });
-    } catch {}
-  },
-
-  addCost: (cost) => set((s) => ({ totalCostUsd: s.totalCostUsd + cost })),
-  setUserIdentity: (nickname, avatarColor, avatarUri = '') =>
-    set({ userNickname: nickname, userAvatarColor: avatarColor, userAvatarUri: avatarUri, hasCompletedIdentitySetup: true }),
-}));
+    {
+      name: 'synapse-app-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+      partialize: (state) => ({
+        userNickname: state.userNickname,
+        userAvatarColor: state.userAvatarColor,
+        userAvatarUri: state.userAvatarUri,
+        hasCompletedIdentitySetup: state.hasCompletedIdentitySetup,
+        authToken: state.authToken,
+        backendUrl: state.backendUrl,
+        tavilySearchEnabled: state.tavilySearchEnabled,
+        totalCostUsd: state.totalCostUsd,
+        agents: state.agents,
+        discussionMode: state.discussionMode,
+      }),
+    }
+  )
+);

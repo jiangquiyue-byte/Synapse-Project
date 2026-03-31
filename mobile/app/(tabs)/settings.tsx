@@ -1,6 +1,6 @@
 /**
  * settings.tsx — Synapse M5 生产化设置页
- * 包含：Heartbeat Dashboard、精准双币计费看板、用户身份管理、后端配置
+ * 包含：Heartbeat Dashboard、精准双币计费看板、用户身份管理、后端配置、创作者信息
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -12,8 +12,11 @@ import {
   StyleSheet,
   Platform,
   Switch,
-  Alert,
   ActivityIndicator,
+  Modal,
+  Pressable,
+  Linking,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useAppStore } from '../../stores/useAppStore';
 import { api } from '../../services/api';
@@ -27,6 +30,28 @@ interface HealthData {
   m5_production: boolean;
   features: string[];
   tavily_enabled: boolean;
+}
+
+// ─── Custom Toast Modal (替代原生 Alert) ─────────────────────────
+function ToastModal({ visible, title, message, onClose }: {
+  visible: boolean;
+  title: string;
+  message: string;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <Pressable style={styles.toastOverlay} onPress={onClose}>
+        <Pressable style={styles.toastCard} onPress={() => {}}>
+          <Text style={styles.toastTitle}>{title}</Text>
+          <Text style={styles.toastMessage}>{message}</Text>
+          <TouchableOpacity style={styles.toastBtn} onPress={onClose}>
+            <Text style={styles.toastBtnText}>确定</Text>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
 }
 
 function HeartbeatDashboard() {
@@ -171,129 +196,178 @@ export default function SettingsScreen() {
   const [urlInput, setUrlInput] = useState(backendUrl || '');
   const [saving, setSaving] = useState(false);
   const [showIdentityEdit, setShowIdentityEdit] = useState(false);
+  const [toast, setToast] = useState({ visible: false, title: '', message: '' });
+
+  const showToast = (title: string, message: string) => setToast({ visible: true, title, message });
 
   const handleSaveUrl = useCallback(async () => {
     setSaving(true);
     try {
       await setBackendUrl(urlInput);
-      Alert.alert('已保存', '后端地址已更新');
+      showToast('已保存', '后端地址已更新');
     } catch (e: any) {
-      Alert.alert('保存失败', e.message);
+      showToast('保存失败', e.message);
     } finally {
       setSaving(false);
     }
   }, [urlInput, setBackendUrl]);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <UserIdentitySetup
-        visible={showIdentityEdit}
-        onComplete={(identity) => {
-          setUserIdentity(identity.nickname, identity.avatarColor, identity.avatarUri);
-          setShowIdentityEdit(false);
-        }}
-      />
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <UserIdentitySetup
+          visible={showIdentityEdit}
+          onComplete={(identity) => {
+            setUserIdentity(identity.nickname, identity.avatarColor, identity.avatarUri);
+            setShowIdentityEdit(false);
+          }}
+        />
 
-      <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>设置</Text>
-        <Text style={styles.pageSubtitle}>Synapse M5 · 生产化配置</Text>
-      </View>
+        <ToastModal
+          visible={toast.visible}
+          title={toast.title}
+          message={toast.message}
+          onClose={() => setToast({ ...toast, visible: false })}
+        />
 
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>用户身份</Text>
-        <View style={styles.identityRow}>
-          <View style={[styles.identityAvatar, { backgroundColor: userAvatarColor || '#1A1A2E' }]}>
-            <Text style={styles.identityAvatarText}>
-              {userNickname ? userNickname[0].toUpperCase() : 'U'}
-            </Text>
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>设置</Text>
+          <Text style={styles.pageSubtitle}>Synapse M5 · 生产化配置</Text>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>用户身份</Text>
+          <View style={styles.identityRow}>
+            <View style={[styles.identityAvatar, { backgroundColor: userAvatarColor || '#1A1A2E' }]}>
+              <Text style={styles.identityAvatarText}>
+                {userNickname ? userNickname[0].toUpperCase() : 'U'}
+              </Text>
+            </View>
+            <View style={styles.identityInfo}>
+              <Text style={styles.identityName}>{userNickname || '未设置昵称'}</Text>
+              <Text style={styles.identityStatus}>
+                {hasCompletedIdentitySetup ? '身份已验证 ✓' : '请完善身份信息'}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.editBtn} onPress={() => setShowIdentityEdit(true)}>
+              <Text style={styles.editBtnText}>编辑</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.identityInfo}>
-            <Text style={styles.identityName}>{userNickname || '未设置昵称'}</Text>
-            <Text style={styles.identityStatus}>
-              {hasCompletedIdentitySetup ? '身份已验证 ✓' : '请完善身份信息'}
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.editBtn} onPress={() => setShowIdentityEdit(true)}>
-            <Text style={styles.editBtnText}>编辑</Text>
+        </View>
+
+        <HeartbeatDashboard />
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>后端地址</Text>
+          <Text style={styles.sectionHint}>生产后端: synapse-project-seven.vercel.app</Text>
+          <TextInput
+            style={styles.urlInput}
+            value={urlInput}
+            onChangeText={setUrlInput}
+            placeholder="https://synapse-project-seven.vercel.app"
+            placeholderTextColor="#BBB"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          <TouchableOpacity
+            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+            onPress={handleSaveUrl}
+            disabled={saving}
+          >
+            <Text style={styles.saveBtnText}>{saving ? '保存中...' : '保存后端地址'}</Text>
           </TouchableOpacity>
         </View>
-      </View>
 
-      <HeartbeatDashboard />
-
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>后端地址</Text>
-        <Text style={styles.sectionHint}>生产后端: synapse-project-seven.vercel.app</Text>
-        <TextInput
-          style={styles.urlInput}
-          value={urlInput}
-          onChangeText={setUrlInput}
-          placeholder="https://synapse-project-seven.vercel.app"
-          placeholderTextColor="#BBB"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-        />
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={handleSaveUrl}
-          disabled={saving}
-        >
-          <Text style={styles.saveBtnText}>{saving ? '保存中...' : '保存后端地址'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.sectionCard}>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleInfo}>
-            <Text style={styles.toggleLabel}>联网搜索 (Tavily)</Text>
-            <Text style={styles.toggleHint}>启用后 Agent 可实时搜索互联网</Text>
+        <View style={styles.sectionCard}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleLabel}>联网搜索 (Tavily)</Text>
+              <Text style={styles.toggleHint}>启用后 Agent 可实时搜索互联网</Text>
+            </View>
+            <Switch
+              value={tavilySearchEnabled}
+              onValueChange={setTavilySearchEnabled}
+              trackColor={{ false: '#E5E5E5', true: '#000000' }}
+              thumbColor="#FFFFFF"
+            />
           </View>
-          <Switch
-            value={tavilySearchEnabled}
-            onValueChange={setTavilySearchEnabled}
-            trackColor={{ false: '#E5E5E5', true: '#000000' }}
-            thumbColor="#FFFFFF"
-          />
         </View>
-      </View>
 
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>计费说明 (精准双币)</Text>
-        <View style={styles.billingInfoRow}>
-          <Text style={styles.billingInfoKey}>计费精度</Text>
-          <Text style={styles.billingInfoVal}>Prompt / Completion 分离</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>计费说明 (精准双币)</Text>
+          <View style={styles.billingInfoRow}>
+            <Text style={styles.billingInfoKey}>计费精度</Text>
+            <Text style={styles.billingInfoVal}>Prompt / Completion 分离</Text>
+          </View>
+          <View style={styles.billingInfoRow}>
+            <Text style={styles.billingInfoKey}>汇率</Text>
+            <Text style={styles.billingInfoVal}>1 USD = 7.25 CNY</Text>
+          </View>
+          <View style={styles.billingInfoRow}>
+            <Text style={styles.billingInfoKey}>本次累计</Text>
+            <Text style={styles.billingInfoVal}>${totalCostUsd.toFixed(6)} / ¥{(totalCostUsd * 7.25).toFixed(5)}</Text>
+          </View>
+          <View style={styles.billingInfoRow}>
+            <Text style={styles.billingInfoKey}>GPT-4o</Text>
+            <Text style={styles.billingInfoVal}>$2.5/1M in · $10/1M out</Text>
+          </View>
+          <View style={styles.billingInfoRow}>
+            <Text style={styles.billingInfoKey}>Claude 3.5</Text>
+            <Text style={styles.billingInfoVal}>$3/1M in · $15/1M out</Text>
+          </View>
+          <View style={styles.billingInfoRow}>
+            <Text style={styles.billingInfoKey}>DeepSeek-V3</Text>
+            <Text style={styles.billingInfoVal}>$0.27/1M in · $1.1/1M out</Text>
+          </View>
+          <View style={styles.billingInfoRow}>
+            <Text style={styles.billingInfoKey}>Gemini 2.5 Flash</Text>
+            <Text style={styles.billingInfoVal}>$0.15/1M in · $0.6/1M out</Text>
+          </View>
         </View>
-        <View style={styles.billingInfoRow}>
-          <Text style={styles.billingInfoKey}>汇率</Text>
-          <Text style={styles.billingInfoVal}>1 USD = 7.25 CNY</Text>
-        </View>
-        <View style={styles.billingInfoRow}>
-          <Text style={styles.billingInfoKey}>本次累计</Text>
-          <Text style={styles.billingInfoVal}>${totalCostUsd.toFixed(6)} / ¥{(totalCostUsd * 7.25).toFixed(5)}</Text>
-        </View>
-        <View style={styles.billingInfoRow}>
-          <Text style={styles.billingInfoKey}>GPT-4o</Text>
-          <Text style={styles.billingInfoVal}>$2.5/1M in · $10/1M out</Text>
-        </View>
-        <View style={styles.billingInfoRow}>
-          <Text style={styles.billingInfoKey}>Claude 3.5</Text>
-          <Text style={styles.billingInfoVal}>$3/1M in · $15/1M out</Text>
-        </View>
-        <View style={styles.billingInfoRow}>
-          <Text style={styles.billingInfoKey}>DeepSeek-V3</Text>
-          <Text style={styles.billingInfoVal}>$0.27/1M in · $1.1/1M out</Text>
-        </View>
-        <View style={styles.billingInfoRow}>
-          <Text style={styles.billingInfoKey}>Gemini 2.5 Flash</Text>
-          <Text style={styles.billingInfoVal}>$0.15/1M in · $0.6/1M out</Text>
-        </View>
-      </View>
 
-      <View style={styles.versionRow}>
-        <Text style={styles.versionText}>Synapse M5 · v2.5.0 · 商业级聚合平台</Text>
-      </View>
-    </ScrollView>
+        {/* ─── 创作者信息 ─── */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>关于 Synapse</Text>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutKey}>创作者</Text>
+            <Text style={styles.aboutVal}>jiangqiuyue</Text>
+          </View>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutKey}>版本</Text>
+            <Text style={styles.aboutVal}>v2.5.0 (M5)</Text>
+          </View>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutKey}>架构</Text>
+            <Text style={styles.aboutVal}>React Native + FastAPI + LangGraph</Text>
+          </View>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutKey}>描述</Text>
+            <Text style={styles.aboutVal}>商业级多智能体群聊协作平台</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.githubBtn}
+            onPress={() => Linking.openURL('https://github.com/jiangquiyue-byte/Synapse-Project')}
+          >
+            <Text style={styles.githubBtnText}>GitHub 仓库</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.versionRow}>
+          <Text style={styles.versionText}>Synapse M5 · v2.5.0 · 商业级聚合平台</Text>
+          <Text style={styles.versionText}>© 2025-2026 jiangqiuyue. All rights reserved.</Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -351,6 +425,19 @@ const styles = StyleSheet.create({
   billingInfoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#F0F0F0' },
   billingInfoKey: { fontSize: 12, color: '#888' },
   billingInfoVal: { fontSize: 12, color: '#333', fontWeight: '500', textAlign: 'right', flex: 1, marginLeft: 12 },
-  versionRow: { alignItems: 'center', paddingVertical: 16 },
+  // About / Creator
+  aboutRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: '#F0F0F0' },
+  aboutKey: { fontSize: 13, color: '#888' },
+  aboutVal: { fontSize: 13, color: '#333', fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 12 },
+  githubBtn: { marginTop: 12, backgroundColor: '#111111', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  githubBtnText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  versionRow: { alignItems: 'center', paddingVertical: 16, gap: 4 },
   versionText: { fontSize: 11, color: '#CCC' },
+  // Toast Modal
+  toastOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', paddingHorizontal: 40 },
+  toastCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, alignItems: 'center' },
+  toastTitle: { fontSize: 17, fontWeight: '700', color: '#111', marginBottom: 8 },
+  toastMessage: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  toastBtn: { backgroundColor: '#111', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 40 },
+  toastBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
 });

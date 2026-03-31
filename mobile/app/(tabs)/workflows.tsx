@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -87,6 +86,12 @@ export default function WorkflowsScreen() {
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const loadMarketplace = useCallback(async () => {
     setLoading(true);
@@ -129,7 +134,7 @@ export default function WorkflowsScreen() {
       const result = await api.applyWorkflow(templateId);
       const applied = result?.applied;
       if (!applied?.session_id || !Array.isArray(applied?.agent_configs)) {
-        Alert.alert('套用失败', result?.message || '后端未返回完整的工作流配置。');
+        showToast(result?.message || '后端未返回完整的工作流配置', 'error');
         return;
       }
 
@@ -146,14 +151,11 @@ export default function WorkflowsScreen() {
       });
       await refreshSessions();
 
-      Alert.alert(
-        applied.success_message || '模板已套用',
-        `新会话：${applied.session_title || '工作流会话'}\n\n建议开场：${applied.recommended_opening_message || '请基于该工作流模板继续执行。'}`
-      );
+      showToast(applied.success_message || `✓ 已套用「${applied.session_title || '工作流会话'}」`, 'success');
       router.push('/');
       return;
     } catch (error: any) {
-      Alert.alert('模板套用失败', error?.message || '未知错误');
+      showToast(error?.message || '模板套用失败，请重试', 'error');
     } finally {
       setApplyingId(null);
     }
@@ -161,6 +163,11 @@ export default function WorkflowsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {toast && (
+        <View style={[styles.toastBar, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
+          <Text style={styles.toastText}>{toast.msg}</Text>
+        </View>
+      )}
       <View style={styles.heroCard}>
         <View style={styles.heroHeader}>
           <WorkflowsTabIcon size={22} color={ICON_TONES.primary} strokeWidth={1.1} />
@@ -478,5 +485,27 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: '#555555',
     marginBottom: 8,
+  },
+  toastBar: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  toastSuccess: {
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#A5D6A7',
+  },
+  toastError: {
+    backgroundColor: '#FFEBEE',
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+  },
+  toastText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
   },
 });

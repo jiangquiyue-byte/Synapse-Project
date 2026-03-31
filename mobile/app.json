@@ -2,13 +2,13 @@
   "expo": {
     "name": "Synapse",
     "slug": "synapse",
-    "version": "2.1.1",
+    "version": "2.5.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
+      "resizeMode": "cover",
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
@@ -26,7 +26,8 @@
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.jiangqiuyue.synapse",
-      "versionCode": 4
+      "versionCode": 5,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/favicon.png"
