@@ -2,7 +2,7 @@
   <img src="mobile/assets/icon.png" width="120" alt="Synapse Logo" />
   <h1>Synapse</h1>
   <p><strong>突触 · 连接智慧，协同思考</strong></p>
-  <p>商业级多智能体群聊协作平台</p>
+  <p>多智能体群聊协作平台</p>
 </div>
 
 ---
