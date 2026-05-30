@@ -1,27 +1,15 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, ScrollView, Modal, Switch, Platform, Pressable, KeyboardAvoidingView,
+  StyleSheet, ScrollView, Modal, Switch, Platform, Pressable, KeyboardAvoidingView, Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore, Agent } from '../../stores/useAppStore';
 import { api } from '../../services/api';
 import { EmptyAgentsIcon, ICON_TONES } from '../../components/SynapseIcons';
 import { ModelAvatar } from '../../components/ModelAvatars';
-
-const PROVIDERS = [
-  { label: 'OpenAI', value: 'openai' },
-  { label: 'Gemini', value: 'gemini' },
-  { label: 'Claude', value: 'claude' },
-  { label: '自定义', value: 'custom_openai' },
-];
-
-const DEFAULT_MODELS: Record<string, string> = {
-  openai: 'gpt-4.1-mini',
-  gemini: 'gemini-2.5-flash',
-  claude: 'claude-sonnet-4-20250514',
-  custom_openai: 'deepseek-chat',
-};
+import { AI_PROVIDER_PRESETS, getProviderPreset, AIProviderPreset } from '../../config/aiProviders';
 
 const AVAILABLE_TOOLS = [
   { id: 'web_search', label: '联网搜索', desc: '实时搜索网页信息' },
@@ -34,13 +22,15 @@ export default function AgentsScreen() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [persona, setPersona] = useState('');
-  const [provider, setProvider] = useState<'openai' | 'gemini' | 'claude' | 'custom_openai'>('openai');
-  const [model, setModel] = useState('gpt-4.1-mini');
+  const [selectedProvider, setSelectedProvider] = useState<AIProviderPreset>(AI_PROVIDER_PRESETS[0]);
+  const [model, setModel] = useState(AI_PROVIDER_PRESETS[0].defaultModel);
   const [apiKey, setApiKey] = useState('');
   const [temperature, setTemperature] = useState('0.7');
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [supportsVision, setSupportsVision] = useState(false);
   const [customBaseUrl, setCustomBaseUrl] = useState('');
+  const [customAvatarUri, setCustomAvatarUri] = useState('');
+  const [showProviderPicker, setShowProviderPicker] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
   const [confirmDelete, setConfirmDelete] = useState<{ visible: boolean; id: string; name: string }>({ visible: false, id: '', name: '' });
 
@@ -49,21 +39,22 @@ export default function AgentsScreen() {
   const handleAddAgent = async () => {
     if (!name.trim()) { setToast({ visible: true, message: '请输入名称' }); return; }
     if (!apiKey.trim()) { setToast({ visible: true, message: '请输入 API Key' }); return; }
-    if (provider === 'custom_openai' && !customBaseUrl.trim()) { setToast({ visible: true, message: '请输入 API 地址' }); return; }
+    if (selectedProvider.isCustom && !customBaseUrl.trim()) { setToast({ visible: true, message: '请输入 API 地址' }); return; }
 
     const newAgent: Agent = {
       id: 'agent_' + Date.now(),
       name: name.trim(),
       persona: persona.trim() || `你是${name.trim()}，请专业地回答问题。`,
-      provider,
-      model: model || DEFAULT_MODELS[provider],
+      provider: selectedProvider.isCustom ? 'custom_openai' : selectedProvider.id as any,
+      model: model || selectedProvider.defaultModel,
       apiKey: apiKey.trim(),
       sequenceOrder: agents.length + 1,
       tools: selectedTools,
       temperature: parseFloat(temperature) || 0.7,
-      avatarColor: '#F0F0F0',
+      avatarColor: selectedProvider.color,
       supportsVision,
-      customBaseUrl: customBaseUrl.trim(),
+      customBaseUrl: selectedProvider.isCustom ? customBaseUrl.trim() : selectedProvider.baseUrl,
+      customAvatarUri: customAvatarUri,
     };
 
     try {
@@ -74,9 +65,27 @@ export default function AgentsScreen() {
   };
 
   const resetForm = () => {
-    setShowForm(false); setName(''); setPersona(''); setProvider('openai');
-    setModel('gpt-4.1-mini'); setApiKey(''); setTemperature('0.7');
-    setSelectedTools([]); setSupportsVision(false); setCustomBaseUrl('');
+    setShowForm(false); setName(''); setPersona(''); setSelectedProvider(AI_PROVIDER_PRESETS[0]);
+    setModel(AI_PROVIDER_PRESETS[0].defaultModel); setApiKey(''); setTemperature('0.7');
+    setSelectedTools([]); setSupportsVision(false); setCustomBaseUrl(''); setCustomAvatarUri('');
+  };
+
+  const handlePickAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) { setToast({ visible: true, message: '需要相册访问权限' }); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.length) {
+        setCustomAvatarUri(result.assets[0].uri);
+      }
+    } catch (e: any) {
+      setToast({ visible: true, message: '选择图片失败: ' + e.message });
+    }
   };
 
   const handleDelete = (id: string, n: string) => {
@@ -89,30 +98,36 @@ export default function AgentsScreen() {
     setConfirmDelete({ visible: false, id: '', name: '' });
   };
 
-  const renderAgent = ({ item }: { item: Agent }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardAvatar}>
-          <ModelAvatar model={item.model} size={36} />
+  const renderAgent = ({ item }: { item: Agent }) => {
+    const preset = AI_PROVIDER_PRESETS.find(p => p.id === item.provider);
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardAvatar}>
+            {item.customAvatarUri ? (
+              <Image source={{ uri: item.customAvatarUri }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+            ) : (
+              <ModelAvatar model={item.model} size={36} />
+            )}
+          </View>
+          <View style={styles.cardInfo}>
+            <Text style={styles.cardName}>{item.name}</Text>
+            <Text style={styles.cardMeta}>{preset?.name || '自定义'} · {item.model}</Text>
+          </View>
+          <TouchableOpacity onPress={() => handleDelete(item.id, item.name)} style={styles.deleteBtn}>
+            <Text style={styles.deleteBtnText}>×</Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardName}>{item.name}</Text>
-          <Text style={styles.cardMeta}>{item.provider === 'custom_openai' ? '自定义' : item.provider.toUpperCase()} · {item.model}</Text>
+        <Text style={styles.cardPersona} numberOfLines={2}>{item.persona}</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardTag}>#{item.sequenceOrder}</Text>
+          <Text style={styles.cardTag}>温度={item.temperature}</Text>
+          {item.tools.map((t) => <Text key={t} style={styles.cardToolTag}>{t === 'web_search' ? '联网' : '文档'}</Text>)}
+          {item.supportsVision && <Text style={styles.cardVisionTag}>视觉</Text>}
         </View>
-        <TouchableOpacity onPress={() => handleDelete(item.id, item.name)} style={styles.deleteBtn}>
-          <Text style={styles.deleteBtnText}>×</Text>
-        </TouchableOpacity>
       </View>
-      <Text style={styles.cardPersona} numberOfLines={2}>{item.persona}</Text>
-      <View style={styles.cardFooter}>
-        <Text style={styles.cardTag}>#{item.sequenceOrder}</Text>
-        <Text style={styles.cardTag}>温度={item.temperature}</Text>
-        {item.tools.map((t) => <Text key={t} style={styles.cardToolTag}>{t === 'web_search' ? '联网' : '文档'}</Text>)}
-        {item.supportsVision && <Text style={styles.cardVisionTag}>视觉</Text>}
-        {item.customBaseUrl ? <Text style={styles.cardTag}>自定义</Text> : null}
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -177,25 +192,50 @@ export default function AgentsScreen() {
             <TextInput style={[styles.textInput, styles.textArea]} value={persona} onChangeText={setPersona} placeholder="定义 AI 角色和行为风格..." placeholderTextColor="#BBB" multiline numberOfLines={4} />
 
             <Text style={styles.label}>供应商</Text>
-            <View style={styles.providerRow}>
-              {PROVIDERS.map((p) => (
-                <TouchableOpacity key={p.value} style={[styles.providerBtn, provider === p.value && styles.providerBtnActive]}
-                  onPress={() => { setProvider(p.value as any); setModel(DEFAULT_MODELS[p.value]); }}>
-                  <Text style={[styles.providerBtnText, provider === p.value && styles.providerBtnTextActive]}>{p.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity style={styles.providerSelector} onPress={() => setShowProviderPicker(true)}>
+              <View style={[styles.providerDot, { backgroundColor: selectedProvider.color }]} />
+              <Text style={styles.providerSelectorText}>{selectedProvider.name}</Text>
+              <Text style={styles.providerSelectorArrow}>▾</Text>
+            </TouchableOpacity>
 
-            {provider === 'custom_openai' && (
+            {selectedProvider.isCustom ? (
               <>
                 <Text style={styles.label}>API 地址</Text>
                 <TextInput style={styles.textInput} value={customBaseUrl} onChangeText={setCustomBaseUrl}
                   placeholder="https://api.deepseek.com/v1" placeholderTextColor="#BBB" autoCapitalize="none" autoCorrect={false} />
               </>
+            ) : (
+              <>
+                <Text style={styles.label}>API 地址</Text>
+                <View style={styles.baseUrlDisplay}>
+                  <Text style={styles.baseUrlText}>{selectedProvider.baseUrl}</Text>
+                </View>
+              </>
             )}
 
             <Text style={styles.label}>模型</Text>
+            {selectedProvider.models.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modelScroll}>
+                {selectedProvider.models.map((m) => (
+                  <TouchableOpacity key={m} style={[styles.modelChip, model === m && styles.modelChipActive]} onPress={() => setModel(m)}>
+                    <Text style={[styles.modelChipText, model === m && styles.modelChipTextActive]}>{m}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : null}
             <TextInput style={styles.textInput} value={model} onChangeText={setModel} placeholder="模型名称" placeholderTextColor="#BBB" />
+
+            <Text style={styles.label}>自定义头像</Text>
+            <TouchableOpacity style={styles.avatarPicker} onPress={handlePickAvatar}>
+              {customAvatarUri ? (
+                <Image source={{ uri: customAvatarUri }} style={styles.avatarPreview} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarPlaceholderText}>选择图片</Text>
+                </View>
+              )}
+              <Text style={styles.avatarHint}>点击选择自定义头像</Text>
+            </TouchableOpacity>
 
             <Text style={styles.label}>API 密钥</Text>
             <TextInput style={styles.textInput} value={apiKey} onChangeText={setApiKey} placeholder="sk-..." placeholderTextColor="#BBB" secureTextEntry />
@@ -226,6 +266,43 @@ export default function AgentsScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+      {/* Provider Picker Modal */}
+      <Modal visible={showProviderPicker} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 14 }]}>
+            <TouchableOpacity onPress={() => setShowProviderPicker(false)} style={styles.modalHeaderBtn}>
+              <Text style={styles.modalCancel}>取消</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>选择供应商</Text>
+            <View style={styles.modalHeaderBtn} />
+          </View>
+          <FlatList
+            data={AI_PROVIDER_PRESETS}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: 16 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.providerCard, selectedProvider.id === item.id && styles.providerCardActive]}
+                onPress={() => {
+                  setSelectedProvider(item);
+                  setModel(item.defaultModel);
+                  if (!item.isCustom) setCustomBaseUrl('');
+                  setShowProviderPicker(false);
+                }}
+              >
+                <View style={[styles.providerCardDot, { backgroundColor: item.color }]} />
+                <View style={styles.providerCardInfo}>
+                  <Text style={styles.providerCardName}>{item.name}</Text>
+                  <Text style={styles.providerCardDesc}>{item.description}</Text>
+                  <Text style={styles.providerCardModels}>{item.models.slice(0, 3).join(' / ')}</Text>
+                </View>
+                {selectedProvider.id === item.id && <Text style={styles.providerCardCheck}>✓</Text>}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
+
       {/* Toast */}
       <Modal visible={toast.visible} transparent animationType="fade">
         <Pressable style={styles.toastOverlay} onPress={() => setToast({ visible: false, message: '' })}>
@@ -315,11 +392,32 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 80, textAlignVertical: 'top' },
 
   // Provider
-  providerRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  providerBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F5F5F5' },
-  providerBtnActive: { backgroundColor: '#000000' },
-  providerBtnText: { fontSize: 12, fontWeight: '600', color: '#666' },
-  providerBtnTextActive: { color: '#FFFFFF' },
+  providerSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  providerDot: { width: 12, height: 12, borderRadius: 6 },
+  providerSelectorText: { flex: 1, fontSize: 14, color: '#000' },
+  providerSelectorArrow: { fontSize: 14, color: '#999' },
+  baseUrlDisplay: { backgroundColor: '#F5F5F5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  baseUrlText: { fontSize: 12, color: '#666', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  modelScroll: { marginBottom: 8 },
+  modelChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F5F5F5', marginRight: 8 },
+  modelChipActive: { backgroundColor: '#000000' },
+  modelChipText: { fontSize: 12, color: '#666' },
+  modelChipTextActive: { color: '#FFFFFF' },
+  // Provider card
+  providerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: '#E5E5E5' },
+  providerCardActive: { borderColor: '#000000', backgroundColor: '#F8F8F8' },
+  providerCardDot: { width: 16, height: 16, borderRadius: 8, marginRight: 12 },
+  providerCardInfo: { flex: 1 },
+  providerCardName: { fontSize: 15, fontWeight: '700', color: '#000' },
+  providerCardDesc: { fontSize: 12, color: '#666', marginTop: 2 },
+  providerCardModels: { fontSize: 10, color: '#999', marginTop: 4 },
+  providerCardCheck: { fontSize: 18, color: '#000', fontWeight: '700' },
+  // Avatar picker
+  avatarPicker: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  avatarPreview: { width: 48, height: 48, borderRadius: 24 },
+  avatarPlaceholder: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E5E5E5' },
+  avatarPlaceholderText: { fontSize: 10, color: '#999' },
+  avatarHint: { fontSize: 12, color: '#999' },
 
   // Tools
   toolsRow: { gap: 8 },

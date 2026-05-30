@@ -8,7 +8,7 @@ export interface Agent {
   id: string;
   name: string;
   persona: string;
-  provider: 'openai' | 'gemini' | 'claude' | 'custom_openai';
+  provider: string;
   model: string;
   apiKey: string;
   sequenceOrder: number;
