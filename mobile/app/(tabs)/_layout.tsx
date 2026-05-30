@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
-import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, Animated, Easing } from 'react-native';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 import SynapsePulse from '../../components/SynapsePulse';
@@ -17,24 +17,32 @@ import { useAppStore } from '../../stores/useAppStore';
 function TabIcon({ name, focused }: { name: 'chat' | 'agents' | 'memory' | 'workflows' | 'settings'; focused: boolean }) {
   const color = focused ? ICON_TONES.primary : ICON_TONES.muted;
   const opacity = focused ? 1 : 0.92;
+  const scaleAnim = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
 
-  if (name === 'chat') {
-    return <ChatTabIcon size={24} color={color} opacity={opacity} strokeWidth={1.2} />;
-  }
+  useEffect(() => {
+    Animated.spring(scaleAnim, {
+      toValue: focused ? 1.1 : 1,
+      tension: 200,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  }, [focused]);
 
-  if (name === 'agents') {
-    return <AgentsTabIcon size={24} color={color} opacity={opacity} strokeWidth={1.2} />;
-  }
+  const iconMap = {
+    chat: ChatTabIcon,
+    agents: AgentsTabIcon,
+    memory: MemoryTabIcon,
+    workflows: WorkflowsTabIcon,
+    settings: SettingsTabIcon,
+  };
 
-  if (name === 'memory') {
-    return <MemoryTabIcon size={24} color={color} opacity={opacity} strokeWidth={1.15} />;
-  }
+  const IconComponent = iconMap[name];
 
-  if (name === 'workflows') {
-    return <WorkflowsTabIcon size={24} color={color} opacity={opacity} strokeWidth={1.15} />;
-  }
-
-  return <SettingsTabIcon size={24} color={color} opacity={opacity} strokeWidth={1.2} />;
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <IconComponent size={24} color={color} opacity={opacity} strokeWidth={1.2} />
+    </Animated.View>
+  );
 }
 
 export default function TabLayout() {

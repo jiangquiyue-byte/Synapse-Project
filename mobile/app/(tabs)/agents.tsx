@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, ScrollView, Modal, Switch, Platform, Pressable, KeyboardAvoidingView, Image,
+  StyleSheet, ScrollView, Modal, Switch, Platform, Pressable, KeyboardAvoidingView, Image, Animated, Easing,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,8 @@ import { api } from '../../services/api';
 import { EmptyAgentsIcon, ICON_TONES } from '../../components/SynapseIcons';
 import { ModelAvatar } from '../../components/ModelAvatars';
 import { AI_PROVIDER_PRESETS, getProviderPreset, AIProviderPreset } from '../../config/aiProviders';
+import PressableScale from '../../components/PressableScale';
+import FadeInView from '../../components/FadeInView';
 
 const AVAILABLE_TOOLS = [
   { id: 'web_search', label: '联网搜索', desc: '实时搜索网页信息' },
@@ -98,34 +100,38 @@ export default function AgentsScreen() {
     setConfirmDelete({ visible: false, id: '', name: '' });
   };
 
-  const renderAgent = ({ item }: { item: Agent }) => {
+  const renderAgent = ({ item, index }: { item: Agent; index: number }) => {
     const preset = AI_PROVIDER_PRESETS.find(p => p.id === item.provider);
     return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardAvatar}>
-            {item.customAvatarUri ? (
-              <Image source={{ uri: item.customAvatarUri }} style={{ width: 36, height: 36, borderRadius: 18 }} />
-            ) : (
-              <ModelAvatar model={item.model} size={36} />
-            )}
+      <FadeInView delay={index * 50} direction="up" distance={15}>
+        <PressableScale scaleTo={0.98}>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardAvatar}>
+                {item.customAvatarUri ? (
+                  <Image source={{ uri: item.customAvatarUri }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                ) : (
+                  <ModelAvatar model={item.model} size={36} />
+                )}
+              </View>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardName}>{item.name}</Text>
+                <Text style={styles.cardMeta}>{preset?.name || '自定义'} · {item.model}</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleDelete(item.id, item.name)} style={styles.deleteBtn}>
+                <Text style={styles.deleteBtnText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.cardPersona} numberOfLines={2}>{item.persona}</Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardTag}>#{item.sequenceOrder}</Text>
+              <Text style={styles.cardTag}>温度={item.temperature}</Text>
+              {item.tools.map((t) => <Text key={t} style={styles.cardToolTag}>{t === 'web_search' ? '联网' : '文档'}</Text>)}
+              {item.supportsVision && <Text style={styles.cardVisionTag}>视觉</Text>}
+            </View>
           </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.cardName}>{item.name}</Text>
-            <Text style={styles.cardMeta}>{preset?.name || '自定义'} · {item.model}</Text>
-          </View>
-          <TouchableOpacity onPress={() => handleDelete(item.id, item.name)} style={styles.deleteBtn}>
-            <Text style={styles.deleteBtnText}>×</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.cardPersona} numberOfLines={2}>{item.persona}</Text>
-        <View style={styles.cardFooter}>
-          <Text style={styles.cardTag}>#{item.sequenceOrder}</Text>
-          <Text style={styles.cardTag}>温度={item.temperature}</Text>
-          {item.tools.map((t) => <Text key={t} style={styles.cardToolTag}>{t === 'web_search' ? '联网' : '文档'}</Text>)}
-          {item.supportsVision && <Text style={styles.cardVisionTag}>视觉</Text>}
-        </View>
-      </View>
+        </PressableScale>
+      </FadeInView>
     );
   };
 
@@ -147,12 +153,13 @@ export default function AgentsScreen() {
         }
       />
 
-      <TouchableOpacity
+      <PressableScale
         style={[styles.addBtn, { bottom: insets.bottom + 16 }]}
         onPress={() => setShowForm(true)}
+        scaleTo={0.95}
       >
         <Text style={styles.addBtnText}>+ 添加成员</Text>
-      </TouchableOpacity>
+      </PressableScale>
 
       {/* Modal — 新建成员 */}
       <Modal visible={showForm} animationType="slide" presentationStyle="pageSheet">
