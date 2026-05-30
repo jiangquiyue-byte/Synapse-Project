@@ -5,6 +5,8 @@
  *   1. Try XMLHttpRequest-based SSE streaming on /api/chat/stream
  *   2. If streaming fails before any event is received, fall back to /api/chat/send
  */
+import { useAppStore } from '../stores/useAppStore';
+
 export class SSEClient {
   private xhr: XMLHttpRequest | null = null;
   private aborted = false;
@@ -52,8 +54,6 @@ export class SSEClient {
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Accept', 'text/event-stream');
       xhr.setRequestHeader('Cache-Control', 'no-cache');
-      const token = require('../stores/useAppStore').useAppStore.getState().authToken;
-      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.timeout = 0;
 
       let finished = false;
@@ -191,7 +191,7 @@ export class SSEClient {
     try {
       const response = await fetch(sendUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(require('../stores/useAppStore').useAppStore.getState().authToken ? { 'Authorization': `Bearer ${require('../stores/useAppStore').useAppStore.getState().authToken}` } : {}) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 

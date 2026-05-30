@@ -58,9 +58,12 @@ interface AppState {
   userAvatarColor: string;
   userAvatarUri: string;
   hasCompletedIdentitySetup: boolean;
+  authToken: string;
 
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
+  setAuthToken: (token: string) => void;
+  clearAuthToken: () => void;
   initializeApp: () => Promise<void>;
   createNewSession: (title?: string) => Promise<string>;
   switchSession: (sessionId: string) => Promise<void>;
@@ -145,8 +148,10 @@ export const useAppStore = create<AppState>()(
       userAvatarColor: '#1A1A2E',
       userAvatarUri: '',
       hasCompletedIdentitySetup: false,
+      authToken: '',
 
       initializeApp: async () => {
+        // Skip auth - go directly to app
         if (get().isBootstrapping) return;
         set({ isBootstrapping: true });
 
@@ -292,6 +297,9 @@ export const useAppStore = create<AppState>()(
       addCost: (cost) => set((s) => ({ totalCostUsd: s.totalCostUsd + cost })),
       setUserIdentity: (nickname, avatarColor, avatarUri = '') =>
         set({ userNickname: nickname, userAvatarColor: avatarColor, userAvatarUri: avatarUri, hasCompletedIdentitySetup: true }),
+
+      setAuthToken: (token: string) => set({ authToken: token }),
+      clearAuthToken: () => set({ authToken: '' }),
     }),
     {
       name: 'synapse-app-storage',
@@ -309,6 +317,7 @@ export const useAppStore = create<AppState>()(
         totalCostUsd: state.totalCostUsd,
         agents: state.agents,
         discussionMode: state.discussionMode,
+        authToken: state.authToken,
       }),
     }
   )

@@ -141,7 +141,7 @@ export default function ChatScreen() {
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showAtMenu, setShowAtMenu] = useState(false);
-  const [showIdentitySetup, setShowIdentitySetup] = useState(!hasCompletedIdentitySetup);
+  const [showIdentitySetup, setShowIdentitySetup] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [showSessionDrawer, setShowSessionDrawer] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -464,7 +464,11 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+    >
       {/* Identity Setup Modal — 强制门控 */}
       <UserIdentitySetup
         visible={showIdentitySetup}

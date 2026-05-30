@@ -2,17 +2,13 @@ import { useAppStore } from '../stores/useAppStore';
 
 const DEFAULT_BACKEND_URL = 'https://synapse-project-seven.vercel.app';
 
-const getToken = () => useAppStore.getState().authToken;
-
 const getBaseUrl = () => {
   return useAppStore.getState().backendUrl || DEFAULT_BACKEND_URL;
 };
 
-/** 生成带 Authorization 的 headers */
+/** 生成 headers（无需认证） */
 const authHeaders = (extra?: Record<string, string>): Record<string, string> => {
-  const token = getToken();
   return {
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...extra,
   };
 };
