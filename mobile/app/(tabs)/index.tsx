@@ -464,11 +464,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-    >
+    <View style={styles.container}>
       {/* Identity Setup Modal — 强制门控 */}
       <UserIdentitySetup
         visible={showIdentitySetup}
@@ -558,38 +554,44 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {/* Input bar */}
-      <View style={styles.inputBar}>
-        <View style={styles.leftControls}>
-          <TouchableOpacity style={styles.plusBtn} onPress={() => setShowPlusMenu(true)} disabled={uploadingDoc || isLoading}>
-            <AddPlusIcon size={18} color={uploadingDoc ? ICON_TONES.subtle : ICON_TONES.primary} strokeWidth={1} opacity={uploadingDoc ? 0.82 : 1} />
-          </TouchableOpacity>
+      {/* Input bar - 固定在底部 */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      >
+        <View style={styles.inputBar}>
+          <View style={styles.leftControls}>
+            <TouchableOpacity style={styles.plusBtn} onPress={() => setShowPlusMenu(true)} disabled={uploadingDoc || isLoading}>
+              <AddPlusIcon size={18} color={uploadingDoc ? ICON_TONES.subtle : ICON_TONES.primary} strokeWidth={1} opacity={uploadingDoc ? 0.82 : 1} />
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.modePill} onPress={cycleMode}>
-            <View style={styles.modeIconWrap}>
-              <ModeIcon mode={discussionMode} color={ICON_TONES.primary} />
-            </View>
-            <Text style={styles.modePillText}>{MODE_LABELS[discussionMode]}</Text>
+            <TouchableOpacity style={styles.modePill} onPress={cycleMode}>
+              <View style={styles.modeIconWrap}>
+                <ModeIcon mode={discussionMode} color={ICON_TONES.primary} />
+              </View>
+              <Text style={styles.modePillText}>{MODE_LABELS[discussionMode]}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Text input */}
+          <TextInput
+            style={styles.input}
+            value={inputText}
+            onChangeText={handleInputChange}
+            placeholder="输入消息... 或 @ 呼唤 Agent"
+            placeholderTextColor="#999"
+            multiline
+            maxLength={2000}
+            editable={!isLoading}
+            cursorColor="#000000"
+          />
+
+          {/* Send */}
+          <TouchableOpacity style={[styles.sendBtn, isLoading && styles.sendBtnDisabled]} onPress={sendMessage} disabled={isLoading}>
+            <SendPulseIcon size={16} color={ICON_TONES.inverse} strokeWidth={1.35} />
           </TouchableOpacity>
         </View>
-
-        {/* Text input */}
-        <TextInput
-          style={styles.input}
-          value={inputText}
-          onChangeText={handleInputChange}
-          placeholder="输入消息... 或 @ 呼唤 Agent"
-          placeholderTextColor="#999"
-          multiline
-          maxLength={2000}
-          editable={!isLoading}
-        />
-
-        {/* Send */}
-        <TouchableOpacity style={[styles.sendBtn, isLoading && styles.sendBtnDisabled]} onPress={sendMessage} disabled={isLoading}>
-          <SendPulseIcon size={16} color={ICON_TONES.inverse} strokeWidth={1.35} />
-        </TouchableOpacity>
-      </View>
+      </KeyboardAvoidingView>
 
       <Modal visible={showExportMenu} transparent animationType="fade">
         <Pressable style={styles.exportOverlay} onPress={() => setShowExportMenu(false)}>
@@ -665,7 +667,7 @@ export default function ChatScreen() {
           </View>
         </Pressable>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

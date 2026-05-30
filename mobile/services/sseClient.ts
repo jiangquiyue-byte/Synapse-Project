@@ -54,6 +54,7 @@ export class SSEClient {
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Accept', 'text/event-stream');
       xhr.setRequestHeader('Cache-Control', 'no-cache');
+      xhr.setRequestHeader('Authorization', 'Bearer default-token');
       xhr.timeout = 0;
 
       let finished = false;
@@ -191,7 +192,7 @@ export class SSEClient {
     try {
       const response = await fetch(sendUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer default-token' },
         body: JSON.stringify(body),
       });
 

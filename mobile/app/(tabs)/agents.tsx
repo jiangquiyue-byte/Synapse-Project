@@ -193,10 +193,10 @@ export default function AgentsScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.label}>名称</Text>
-            <TextInput style={styles.textInput} value={name} onChangeText={setName} placeholder="如：资料搜集员" placeholderTextColor="#BBB" />
+            <TextInput style={styles.textInput} value={name} onChangeText={setName} placeholder="如：资料搜集员" placeholderTextColor="#BBB" cursorColor="#000000" />
 
             <Text style={styles.label}>角色设定</Text>
-            <TextInput style={[styles.textInput, styles.textArea]} value={persona} onChangeText={setPersona} placeholder="定义 AI 角色和行为风格..." placeholderTextColor="#BBB" multiline numberOfLines={4} />
+            <TextInput style={[styles.textInput, styles.textArea]} value={persona} onChangeText={setPersona} placeholder="定义 AI 角色和行为风格..." placeholderTextColor="#BBB" multiline numberOfLines={4} cursorColor="#000000" />
 
             <Text style={styles.label}>供应商</Text>
             <TouchableOpacity style={styles.providerSelector} onPress={() => setShowProviderPicker(true)}>
@@ -209,7 +209,7 @@ export default function AgentsScreen() {
               <>
                 <Text style={styles.label}>API 地址</Text>
                 <TextInput style={styles.textInput} value={customBaseUrl} onChangeText={setCustomBaseUrl}
-                  placeholder="https://api.deepseek.com/v1" placeholderTextColor="#BBB" autoCapitalize="none" autoCorrect={false} />
+                  placeholder="https://api.deepseek.com/v1" placeholderTextColor="#BBB" autoCapitalize="none" autoCorrect={false} cursorColor="#000000" />
               </>
             ) : (
               <>
@@ -230,25 +230,36 @@ export default function AgentsScreen() {
                 ))}
               </ScrollView>
             ) : null}
-            <TextInput style={styles.textInput} value={model} onChangeText={setModel} placeholder="模型名称" placeholderTextColor="#BBB" />
+            <TextInput style={styles.textInput} value={model} onChangeText={setModel} placeholder="模型名称" placeholderTextColor="#BBB" cursorColor="#000000" />
 
             <Text style={styles.label}>自定义头像</Text>
-            <TouchableOpacity style={styles.avatarPicker} onPress={handlePickAvatar}>
+            <View style={styles.avatarSection}>
+              <TouchableOpacity style={styles.avatarPicker} onPress={handlePickAvatar}>
+                {customAvatarUri ? (
+                  <Image source={{ uri: customAvatarUri }} style={styles.avatarPreview} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarPlaceholderText}>选择图片</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
               {customAvatarUri ? (
-                <Image source={{ uri: customAvatarUri }} style={styles.avatarPreview} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarPlaceholderText}>选择图片</Text>
+                <View style={styles.avatarActions}>
+                  <Text style={styles.avatarSelected}>已选择头像</Text>
+                  <TouchableOpacity onPress={() => setCustomAvatarUri('')} style={styles.avatarRemoveBtn}>
+                    <Text style={styles.avatarRemoveText}>移除</Text>
+                  </TouchableOpacity>
                 </View>
+              ) : (
+                <Text style={styles.avatarHint}>点击选择自定义头像</Text>
               )}
-              <Text style={styles.avatarHint}>点击选择自定义头像</Text>
-            </TouchableOpacity>
+            </View>
 
             <Text style={styles.label}>API 密钥</Text>
-            <TextInput style={styles.textInput} value={apiKey} onChangeText={setApiKey} placeholder="sk-..." placeholderTextColor="#BBB" secureTextEntry />
+            <TextInput style={styles.textInput} value={apiKey} onChangeText={setApiKey} placeholder="sk-..." placeholderTextColor="#BBB" secureTextEntry cursorColor="#000000" />
 
             <Text style={styles.label}>温度 ({temperature})</Text>
-            <TextInput style={styles.textInput} value={temperature} onChangeText={setTemperature} placeholder="0.7" placeholderTextColor="#BBB" keyboardType="decimal-pad" />
+            <TextInput style={styles.textInput} value={temperature} onChangeText={setTemperature} placeholder="0.7" placeholderTextColor="#BBB" keyboardType="decimal-pad" cursorColor="#000000" />
 
             <Text style={styles.label}>工具</Text>
             <View style={styles.toolsRow}>
@@ -420,11 +431,16 @@ const styles = StyleSheet.create({
   providerCardModels: { fontSize: 10, color: '#999', marginTop: 4 },
   providerCardCheck: { fontSize: 18, color: '#000', fontWeight: '700' },
   // Avatar picker
-  avatarPicker: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  avatarPreview: { width: 48, height: 48, borderRadius: 24 },
-  avatarPlaceholder: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E5E5E5' },
+  avatarSection: { gap: 8 },
+  avatarPicker: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: '#E5E5E5' },
+  avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E5E5E5' },
   avatarPlaceholderText: { fontSize: 10, color: '#999' },
   avatarHint: { fontSize: 12, color: '#999' },
+  avatarActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarSelected: { fontSize: 12, color: '#22C55E', fontWeight: '600' },
+  avatarRemoveBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#FEE2E2' },
+  avatarRemoveText: { fontSize: 12, color: '#EF4444', fontWeight: '600' },
 
   // Tools
   toolsRow: { gap: 8 },

@@ -112,6 +112,7 @@ export default function UserIdentitySetup({ visible, onComplete }: Props) {
           autoFocus
           returnKeyType="next"
           onSubmitEditing={handleNicknameNext}
+          cursorColor="#000000"
         />
         <Text style={styles.charCount}>{nickname.length}/16</Text>
       </View>

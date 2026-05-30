@@ -280,6 +280,7 @@ export default function SettingsScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
+            cursorColor="#000000"
           />
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}

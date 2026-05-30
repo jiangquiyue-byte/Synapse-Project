@@ -65,6 +65,7 @@ export default function LoginScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="next"
+            cursorColor="#000000"
           />
 
           <Text style={styles.label}>密码</Text>
@@ -77,6 +78,7 @@ export default function LoginScreen() {
             secureTextEntry
             returnKeyType="done"
             onSubmitEditing={handleLogin}
+            cursorColor="#000000"
           />
 
           {error ? (
