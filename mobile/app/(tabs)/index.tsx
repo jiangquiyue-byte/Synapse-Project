@@ -464,7 +464,11 @@ export default function ChatScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+    >
       {/* Identity Setup Modal — 强制门控 */}
       <UserIdentitySetup
         visible={showIdentitySetup}
@@ -555,10 +559,6 @@ export default function ChatScreen() {
       )}
 
       {/* Input bar - 固定在底部 */}
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-      >
         <View style={styles.inputBar}>
           <View style={styles.leftControls}>
             <TouchableOpacity style={styles.plusBtn} onPress={() => setShowPlusMenu(true)} disabled={uploadingDoc || isLoading}>
@@ -591,7 +591,6 @@ export default function ChatScreen() {
             <SendPulseIcon size={16} color={ICON_TONES.inverse} strokeWidth={1.35} />
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
 
       <Modal visible={showExportMenu} transparent animationType="fade">
         <Pressable style={styles.exportOverlay} onPress={() => setShowExportMenu(false)}>
@@ -667,7 +666,7 @@ export default function ChatScreen() {
           </View>
         </Pressable>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

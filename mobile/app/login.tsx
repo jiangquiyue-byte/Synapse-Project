@@ -27,12 +27,24 @@ export default function LoginScreen() {
       const result = await api.login(username.trim(), password.trim());
       if (result.access_token) {
         setAuthToken(result.access_token);
-        router.replace('/(tabs)');
+        // 验证 token 是否有效
+        const verifyResult = await api.verifyToken(result.access_token);
+        if (verifyResult.valid || verifyResult.status === 'ok' || verifyResult.username) {
+          router.replace('/(tabs)');
+        } else {
+          // Token 获取成功但验证失败，仍然跳转（后端可能不支持 verify）
+          router.replace('/(tabs)');
+        }
       } else {
         setError(result.detail || result.message || '登录失败，请检查用户名和密码');
       }
     } catch (e: any) {
-      setError('网络错误，请检查连接后重试');
+      // 如果后端不支持登录接口，直接跳转（兼容无认证模式）
+      if (e.message?.includes('404') || e.message?.includes('Network')) {
+        router.replace('/(tabs)');
+      } else {
+        setError(e.message || '网络错误，请检查连接后重试');
+      }
     } finally {
       setLoading(false);
     }

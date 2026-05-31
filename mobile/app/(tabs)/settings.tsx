@@ -200,6 +200,13 @@ export default function SettingsScreen() {
   const [showIdentityEdit, setShowIdentityEdit] = useState(false);
   const [toast, setToast] = useState({ visible: false, title: '', message: '' });
 
+  // 个人主页编辑状态
+  const [editNickname, setEditNickname] = useState(userNickname || '');
+  const [editAvatarColor, setEditAvatarColor] = useState(userAvatarColor || '#1A1A2E');
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+
+  const AVATAR_COLORS = ['#1A1A2E', '#E74C3C', '#3498DB', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C', '#E67E22', '#34495E', '#E91E63'];
+
   const showToast = (title: string, message: string) => setToast({ visible: true, title, message });
 
   const handleSaveUrl = useCallback(async () => {
@@ -234,6 +241,83 @@ export default function SettingsScreen() {
           }}
         />
 
+        {/* 个人主页编辑 Modal */}
+        <Modal visible={showProfileEdit} transparent animationType="slide">
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <Pressable style={styles.toastOverlay} onPress={() => setShowProfileEdit(false)}>
+              <Pressable style={[styles.toastCard, { paddingHorizontal: 24, paddingVertical: 28 }]} onPress={() => {}}>
+                <Text style={[styles.toastTitle, { marginBottom: 16 }]}>编辑个人主页</Text>
+
+                <Text style={[styles.sectionLabel, { marginBottom: 8 }]}>头像预览</Text>
+                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <View style={{
+                    width: 72, height: 72, borderRadius: 36,
+                    backgroundColor: editAvatarColor,
+                    justifyContent: 'center', alignItems: 'center',
+                  }}>
+                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#FFFFFF' }}>
+                      {editNickname ? editNickname[0].toUpperCase() : 'U'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.sectionLabel, { marginBottom: 6 }]}>选择头像颜色</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20, justifyContent: 'center' }}>
+                  {AVATAR_COLORS.map((c) => (
+                    <TouchableOpacity
+                      key={c}
+                      onPress={() => setEditAvatarColor(c)}
+                      style={{
+                        width: 36, height: 36, borderRadius: 18,
+                        backgroundColor: c,
+                        borderWidth: editAvatarColor === c ? 3 : 0,
+                        borderColor: '#000',
+                      }}
+                    />
+                  ))}
+                </View>
+
+                <Text style={[styles.sectionLabel, { marginBottom: 6 }]}>昵称</Text>
+                <TextInput
+                  style={[styles.urlInput, { marginBottom: 20 }]}
+                  value={editNickname}
+                  onChangeText={setEditNickname}
+                  placeholder="输入昵称"
+                  placeholderTextColor="#BBB"
+                  maxLength={20}
+                  cursorColor="#000000"
+                />
+
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { flex: 1, backgroundColor: '#F0F0F0' }]}
+                    onPress={() => setShowProfileEdit(false)}
+                  >
+                    <Text style={[styles.saveBtnText, { color: '#333' }]}>取消</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { flex: 1 }]}
+                    onPress={() => {
+                      if (!editNickname.trim()) {
+                        showToast('提示', '昵称不能为空');
+                        return;
+                      }
+                      setUserIdentity(editNickname.trim(), editAvatarColor, userAvatarUri);
+                      setShowProfileEdit(false);
+                      showToast('已保存', '个人信息已更新');
+                    }}
+                  >
+                    <Text style={styles.saveBtnText}>保存</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Modal>
+
         <ToastModal
           visible={toast.visible}
           title={toast.title}
@@ -260,7 +344,11 @@ export default function SettingsScreen() {
                 {hasCompletedIdentitySetup ? '身份已验证 ✓' : '请完善身份信息'}
               </Text>
             </View>
-            <TouchableOpacity style={styles.editBtn} onPress={() => setShowIdentityEdit(true)}>
+            <TouchableOpacity style={styles.editBtn} onPress={() => {
+              setEditNickname(userNickname || '');
+              setEditAvatarColor(userAvatarColor || '#1A1A2E');
+              setShowProfileEdit(true);
+            }}>
               <Text style={styles.editBtnText}>编辑</Text>
             </TouchableOpacity>
           </View>

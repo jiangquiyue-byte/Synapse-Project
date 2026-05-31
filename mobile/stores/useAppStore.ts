@@ -203,6 +203,8 @@ export const useAppStore = create<AppState>()(
             await get().refreshSessions();
           }
           await get().loadMessages(nextSessionId);
+        } catch (e: any) {
+          console.warn('[initializeApp] 初始化部分失败:', e.message);
         } finally {
           set({ isBootstrapping: false });
         }
@@ -281,6 +283,23 @@ export const useAppStore = create<AppState>()(
 
       setBackendUrl: async (url) => {
         const normalized = url.trim().replace(/\/$/, '');
+        // 验证 URL 格式
+        if (normalized && !normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+          throw new Error('请输入有效的 URL（以 http:// 或 https:// 开头）');
+        }
+        // 测试连通性
+        if (normalized) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(`${normalized}/health`, { signal: controller.signal });
+            clearTimeout(timeout);
+            if (!res.ok) throw new Error(`服务器返回 ${res.status}`);
+          } catch (e: any) {
+            if (e.name === 'AbortError') throw new Error('连接超时，请检查地址是否正确');
+            throw new Error(`无法连接到服务器: ${e.message}`);
+          }
+        }
         set({ backendUrl: normalized });
         try {
           await api.setConfig('backend_url', { url: normalized });

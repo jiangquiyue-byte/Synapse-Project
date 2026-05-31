@@ -6,10 +6,11 @@ const getBaseUrl = () => {
   return useAppStore.getState().backendUrl || DEFAULT_BACKEND_URL;
 };
 
-/** 生成 headers（添加默认token绕过后端认证） */
+/** 生成 headers — 使用用户登录后的 authToken，未登录时 fallback 到 default-token */
 const authHeaders = (extra?: Record<string, string>): Record<string, string> => {
+  const token = useAppStore.getState().authToken || 'default-token';
   return {
-    'Authorization': 'Bearer default-token',
+    'Authorization': `Bearer ${token}`,
     ...extra,
   };
 };
@@ -224,11 +225,11 @@ export const api = {
     return safeJson(res);
   },
 
-  // Auth — 登录不需要传 token
+  // Auth — 登录获取 token 后存入 store
   login: async (username: string, password: string) => {
     const res = await fetch(`${getBaseUrl()}/api/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer default-token' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${useAppStore.getState().authToken || 'default-token'}` },
       body: JSON.stringify({ username, password }),
     });
     return safeJson(res);
